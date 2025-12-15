@@ -35,3 +35,6 @@ npm run android  # veya npm run ios
 1. Firebase projesi oluşturun ve `google-services.json` (Android) ve `GoogleService-Info.plist` (iOS) dosyalarını ekleyin
 2. Spotify API credentials için `.env` dosyası oluşturun
 
+
+
+

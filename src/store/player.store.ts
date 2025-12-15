@@ -18,6 +18,7 @@ interface PlayerStore extends PlayerState {
   skipToNext: () => Promise<void>;
   skipToPrevious: () => Promise<void>;
   seekTo: (position: number) => Promise<void>;
+  updatePosition: () => Promise<void>;
 }
 
 export const usePlayerStore = create<PlayerStore>((set, get) => ({
@@ -53,14 +54,71 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
   playTrack: async (track) => {
     try {
-      await playerService.addTrack(track);
-      await playerService.play();
+      // Önceki interval'i temizle
+      const prevInterval = (get() as any)._positionInterval;
+      if (prevInterval) {
+        clearInterval(prevInterval);
+      }
+
+      console.log('Playing track:', track.title, 'by', track.artist);
+      
+      // Track'ın duration'ını önce set et (Spotify'dan gelen duration)
       set({
         currentTrack: track,
+        duration: track.duration || 0,
+        position: 0,
+        isPlaying: false,
+      });
+      
+      await playerService.addTrack(track);
+      
+      // Track yüklendikten sonra biraz bekle
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      
+      await playerService.play();
+      
+      // Player'dan gerçek duration'ı al (eğer track.duration yoksa)
+      setTimeout(async () => {
+        const playerDuration = await playerService.getDuration();
+        if (playerDuration > 0) {
+          set({duration: playerDuration});
+        } else if (track.duration > 0) {
+          // Eğer player'dan duration alınamazsa, track'tan gelen duration'ı kullan
+          set({duration: track.duration});
+        }
+      }, 1000);
+      
+      set({
         isPlaying: true,
       });
-    } catch (error) {
+      
+      // Position güncellemelerini başlat
+      const interval = setInterval(async () => {
+        try {
+          const position = await playerService.getPosition();
+          const state = await playerService.getState();
+          const playerDuration = await playerService.getDuration();
+          
+          // Duration'ı güncelle (eğer player'dan alınabiliyorsa)
+          const finalDuration = playerDuration > 0 ? playerDuration : (track.duration || 0);
+          
+          set({
+            position,
+            duration: finalDuration,
+            isPlaying: state === 'playing',
+          });
+        } catch (error) {
+          console.error('Position update error:', error);
+        }
+      }, 1000);
+      
+      // Store'da interval'i sakla (cleanup için)
+      (get() as any)._positionInterval = interval;
+    } catch (error: any) {
       console.error('Play track error:', error);
+      set({isPlaying: false});
+      // Kullanıcıya hata mesajı göster
+      throw new Error(error.message || 'Şarkı çalınamadı. Lütfen tekrar deneyin.');
     }
   },
 
@@ -80,20 +138,40 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   },
 
   skipToNext: async () => {
+    const {queue, currentTrack} = get();
     try {
-      await playerService.skipToNext();
-      const track = await playerService.getCurrentTrack();
-      set({currentTrack: track});
+      if (queue.length > 0 && currentTrack) {
+        const currentIndex = queue.findIndex((t) => t.id === currentTrack.id);
+        const nextIndex = (currentIndex + 1) % queue.length;
+        const nextTrack = queue[nextIndex];
+        if (nextTrack) {
+          await get().playTrack(nextTrack);
+        }
+      } else {
+        await playerService.skipToNext();
+        const track = await playerService.getCurrentTrack();
+        set({currentTrack: track});
+      }
     } catch (error) {
       console.error('Skip to next error:', error);
     }
   },
 
   skipToPrevious: async () => {
+    const {queue, currentTrack} = get();
     try {
-      await playerService.skipToPrevious();
-      const track = await playerService.getCurrentTrack();
-      set({currentTrack: track});
+      if (queue.length > 0 && currentTrack) {
+        const currentIndex = queue.findIndex((t) => t.id === currentTrack.id);
+        const prevIndex = currentIndex <= 0 ? queue.length - 1 : currentIndex - 1;
+        const prevTrack = queue[prevIndex];
+        if (prevTrack) {
+          await get().playTrack(prevTrack);
+        }
+      } else {
+        await playerService.skipToPrevious();
+        const track = await playerService.getCurrentTrack();
+        set({currentTrack: track});
+      }
     } catch (error) {
       console.error('Skip to previous error:', error);
     }
@@ -107,5 +185,24 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       console.error('Seek error:', error);
     }
   },
-}));
 
+  updatePosition: async () => {
+    try {
+      const {currentTrack} = get();
+      const position = await playerService.getPosition();
+      const playerDuration = await playerService.getDuration();
+      const state = await playerService.getState();
+      
+      // Duration'ı belirle: önce player'dan, sonra track'tan
+      const duration = playerDuration > 0 ? playerDuration : (currentTrack?.duration || 0);
+      
+      set({
+        position,
+        duration,
+        isPlaying: state === 'playing',
+      });
+    } catch (error) {
+      console.error('Update position error:', error);
+    }
+  },
+}));

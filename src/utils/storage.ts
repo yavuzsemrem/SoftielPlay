@@ -1,30 +1,26 @@
-import {MMKV} from 'react-native-mmkv';
-
-const storage = new MMKV({
-  id: 'softiel-storage',
-  encryptionKey: 'softiel-encryption-key', // Production'da daha güvenli bir key kullanın
-});
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const Storage = {
-  set: <T>(key: string, value: T): void => {
-    storage.set(key, JSON.stringify(value));
+  set: async <T>(key: string, value: T): Promise<void> => {
+    await AsyncStorage.setItem(key, JSON.stringify(value));
   },
 
-  get: <T>(key: string): T | null => {
-    const value = storage.getString(key);
+  get: async <T>(key: string): Promise<T | null> => {
+    const value = await AsyncStorage.getItem(key);
     return value ? JSON.parse(value) : null;
   },
 
-  delete: (key: string): void => {
-    storage.delete(key);
+  delete: async (key: string): Promise<void> => {
+    await AsyncStorage.removeItem(key);
   },
 
-  clear: (): void => {
-    storage.clearAll();
+  clear: async (): Promise<void> => {
+    await AsyncStorage.clear();
   },
 
-  contains: (key: string): boolean => {
-    return storage.contains(key);
+  contains: async (key: string): Promise<boolean> => {
+    const value = await AsyncStorage.getItem(key);
+    return value !== null;
   },
 };
 

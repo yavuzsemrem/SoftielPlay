@@ -8,7 +8,12 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  Alert,
 } from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {LinearGradient} from 'expo-linear-gradient';
+import {Ionicons} from '@expo/vector-icons';
+import {Colors} from '@constants/colors';
 import {spotifyService} from '@services/spotify.service';
 import {usePlayerStore} from '@store/player.store';
 import {useTrackStore} from '@store/track.store';
@@ -18,6 +23,7 @@ export default function SearchScreen() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Track[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const {playTrack} = usePlayerStore();
   const {addTrack} = useTrackStore();
 
@@ -27,27 +33,44 @@ export default function SearchScreen() {
     }
 
     setLoading(true);
+    setError(null);
     try {
       const tracks = await spotifyService.searchTracks(query, 20);
       setResults(tracks);
-    } catch (error) {
-      console.error('Search error:', error);
+      // Bulunan track'ları store'a ekle
+      tracks.forEach((track) => addTrack(track));
+    } catch (err) {
+      setError('Arama yapılamadı. Lütfen tekrar deneyin.');
+      console.error('Search error:', err);
     } finally {
       setLoading(false);
     }
   };
 
   const handlePlayTrack = async (track: Track) => {
-    addTrack(track);
-    await playTrack(track);
+    try {
+      await playTrack(track);
+    } catch (err: any) {
+      console.error('Play track error:', err);
+      Alert.alert(
+        'Şarkı Çalınamadı',
+        err.message || 'Şarkı çalınamadı. Lütfen tekrar deneyin.',
+        [{text: 'Tamam'}],
+      );
+    }
   };
 
   const renderTrack = ({item}: {item: Track}) => (
     <TouchableOpacity
-      style={styles.trackItem}
-      onPress={() => handlePlayTrack(item)}>
-      {item.artwork && (
+      style={styles.trackCard}
+      onPress={() => handlePlayTrack(item)}
+      activeOpacity={0.7}>
+      {item.artwork ? (
         <Image source={{uri: item.artwork}} style={styles.artwork} />
+      ) : (
+        <View style={styles.artworkPlaceholder}>
+          <Ionicons name="musical-note" size={20} color={Colors.primary} />
+        </View>
       )}
       <View style={styles.trackInfo}>
         <Text style={styles.trackTitle} numberOfLines={1}>
@@ -57,36 +80,87 @@ export default function SearchScreen() {
           {item.artist}
         </Text>
       </View>
+      <TouchableOpacity
+        style={styles.playButton}
+        onPress={(e) => {
+          e.stopPropagation();
+          handlePlayTrack(item);
+        }}
+        activeOpacity={0.8}>
+        <Ionicons name="play" size={18} color={Colors.textPrimary} />
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Şarkı, sanatçı veya albüm ara..."
-          placeholderTextColor="#b3b3b3"
-          value={query}
-          onChangeText={setQuery}
-          onSubmitEditing={handleSearch}
-          returnKeyType="search"
-        />
-        <TouchableOpacity
-          style={styles.searchButton}
-          onPress={handleSearch}
-          disabled={loading}>
-          {loading ? (
-            <ActivityIndicator color="#1DB954" />
-          ) : (
-            <Text style={styles.searchButtonText}>Ara</Text>
-          )}
-        </TouchableOpacity>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Ara</Text>
+        <View style={styles.searchContainer}>
+          <View style={styles.searchInputContainer}>
+            <Ionicons
+              name="search"
+              size={20}
+              color={Colors.textSecondary}
+              style={styles.searchIcon}
+            />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Şarkı, sanatçı veya albüm ara..."
+              placeholderTextColor={Colors.textTertiary}
+              value={query}
+              onChangeText={setQuery}
+              onSubmitEditing={handleSearch}
+              returnKeyType="search"
+            />
+            {query.length > 0 && (
+              <TouchableOpacity
+                onPress={() => {
+                  setQuery('');
+                  setResults([]);
+                }}
+                style={styles.clearButton}>
+                <Ionicons name="close-circle" size={20} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+          <TouchableOpacity
+            style={styles.searchButton}
+            onPress={handleSearch}
+            disabled={loading || !query.trim()}
+            activeOpacity={0.8}>
+            {loading ? (
+              <ActivityIndicator color={Colors.textPrimary} size="small" />
+            ) : (
+              <LinearGradient
+                colors={[Colors.primary, Colors.primaryBright]}
+                style={styles.searchButtonGradient}>
+                <Ionicons name="search" size={20} color={Colors.textPrimary} />
+              </LinearGradient>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {error && (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={20} color={Colors.error} />
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
 
       {loading && results.length === 0 ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#1DB954" />
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Aranıyor...</Text>
+        </View>
+      ) : results.length === 0 && !loading ? (
+        <View style={styles.emptyState}>
+          <Ionicons name="search-outline" size={80} color={Colors.textTertiary} />
+          <Text style={styles.emptyText}>Arama yapmak için yukarıdaki kutuya yazın</Text>
+          <Text style={styles.emptySubtext}>
+            Spotify'dan milyonlarca şarkıyı keşfedin
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -94,78 +168,162 @@ export default function SearchScreen() {
           renderItem={renderTrack}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: Colors.background,
+  },
+  header: {
+    paddingTop: 20,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+  },
+  headerTitle: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginBottom: 20,
+    letterSpacing: -0.5,
   },
   searchContainer: {
     flexDirection: 'row',
-    padding: 16,
     gap: 12,
+    alignItems: 'center',
+  },
+  searchInputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 16,
+    height: 52,
+  },
+  searchIcon: {
+    marginRight: 12,
   },
   searchInput: {
     flex: 1,
-    height: 48,
-    backgroundColor: '#1a1a1a',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    color: '#fff',
+    color: Colors.textPrimary,
     fontSize: 16,
   },
+  clearButton: {
+    padding: 4,
+  },
   searchButton: {
-    height: 48,
-    paddingHorizontal: 24,
-    backgroundColor: '#1DB954',
-    borderRadius: 8,
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  searchButtonGradient: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  searchButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+  errorContainer: {
+    margin: 20,
+    padding: 16,
+    backgroundColor: Colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.error,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  errorText: {
+    color: Colors.error,
+    fontSize: 14,
+    flex: 1,
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 16,
+  },
+  loadingText: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 80,
+  },
+  emptyText: {
+    fontSize: 18,
+    color: Colors.textPrimary,
+    fontWeight: '600',
+    marginTop: 24,
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    paddingHorizontal: 40,
   },
   list: {
-    padding: 16,
+    padding: 20,
+    paddingBottom: 100, // Mini player için ekstra padding
   },
-  trackItem: {
+  trackCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: Colors.card,
+    borderRadius: 12,
     padding: 12,
-    backgroundColor: '#1a1a1a',
-    borderRadius: 8,
-    marginBottom: 12,
+    marginBottom: 8,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   artwork: {
-    width: 56,
-    height: 56,
-    borderRadius: 4,
-    marginRight: 12,
+    width: 52,
+    height: 52,
+    borderRadius: 10,
+  },
+  artworkPlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: 10,
+    backgroundColor: Colors.backgroundTertiary,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   trackInfo: {
     flex: 1,
   },
   trackTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
-    marginBottom: 4,
+    color: Colors.textPrimary,
+    marginBottom: 2,
   },
   trackArtist: {
-    fontSize: 14,
-    color: '#b3b3b3',
+    fontSize: 13,
+    color: Colors.textSecondary,
+  },
+  playButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
-

@@ -1,7 +1,10 @@
 import React from 'react';
-import {NavigationContainer} from '@react-navigation/native';
+import {View, StyleSheet, Platform} from 'react-native';
+import {NavigationContainer, useNavigation} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import {Ionicons} from '@expo/vector-icons';
+import {Colors} from '@constants/colors';
 import type {StackParamList, TabParamList} from '@types/navigation';
 
 // Screens
@@ -11,43 +14,72 @@ import LibraryScreen from '@screens/LibraryScreen';
 import PlaylistScreen from '@screens/PlaylistScreen';
 import PlayerScreen from '@screens/PlayerScreen';
 
+// Components
+import MiniPlayer from '@components/MiniPlayer';
+
 const Stack = createStackNavigator<StackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
 
 function MainTabs() {
+  const navigation = useNavigation<any>();
+  
   return (
-    <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: '#1DB954', // Spotify yeşili
-        tabBarInactiveTintColor: '#b3b3b3',
-        tabBarStyle: {
-          backgroundColor: '#121212',
-          borderTopColor: '#1a1a1a',
-        },
-      }}>
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{
-          tabBarLabel: 'Ana Sayfa',
-        }}
-      />
-      <Tab.Screen
-        name="Search"
-        component={SearchScreen}
-        options={{
-          tabBarLabel: 'Ara',
-        }}
-      />
-      <Tab.Screen
-        name="Library"
-        component={LibraryScreen}
-        options={{
-          tabBarLabel: 'Kütüphane',
-        }}
-      />
-    </Tab.Navigator>
+    <View style={styles.tabsContainer}>
+      <Tab.Navigator
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: Colors.primary,
+          tabBarInactiveTintColor: Colors.textSecondary,
+          tabBarStyle: {
+            backgroundColor: Colors.background,
+            borderTopColor: Colors.border,
+            borderTopWidth: 1,
+            height: Platform.OS === 'ios' ? 90 : 70,
+            paddingBottom: Platform.OS === 'ios' ? 30 : 10,
+            paddingTop: 10,
+            marginBottom: 0,
+          },
+          tabBarLabelStyle: {
+            fontSize: 12,
+            fontWeight: '600',
+          },
+          tabBarIconStyle: {
+            marginTop: 4,
+          },
+        }}>
+        <Tab.Screen
+          name="Home"
+          component={HomeScreen}
+          options={{
+            tabBarLabel: 'Ana Sayfa',
+            tabBarIcon: ({color, size}) => (
+              <Ionicons name="home" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Search"
+          component={SearchScreen}
+          options={{
+            tabBarLabel: 'Ara',
+            tabBarIcon: ({color, size}) => (
+              <Ionicons name="search" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen
+          name="Library"
+          component={LibraryScreen}
+          options={{
+            tabBarLabel: 'Kütüphane',
+            tabBarIcon: ({color, size}) => (
+              <Ionicons name="library" size={size} color={color} />
+            ),
+          }}
+        />
+      </Tab.Navigator>
+      <MiniPlayer navigation={navigation} />
+    </View>
   );
 }
 
@@ -57,11 +89,15 @@ export default function AppNavigator() {
       <Stack.Navigator
         screenOptions={{
           headerStyle: {
-            backgroundColor: '#121212',
+            backgroundColor: Colors.background,
+            borderBottomWidth: 0,
+            elevation: 0,
+            shadowOpacity: 0,
           },
-          headerTintColor: '#fff',
+          headerTintColor: Colors.textPrimary,
           headerTitleStyle: {
             fontWeight: 'bold',
+            fontSize: 18,
           },
         }}>
         <Stack.Screen
@@ -84,3 +120,8 @@ export default function AppNavigator() {
   );
 }
 
+const styles = StyleSheet.create({
+  tabsContainer: {
+    flex: 1,
+  },
+});

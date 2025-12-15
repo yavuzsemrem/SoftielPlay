@@ -21,8 +21,8 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
   playlists: [],
   currentPlaylist: null,
 
-  loadPlaylists: () => {
-    const playlists = Storage.get<Playlist[]>(STORAGE_KEYS.PLAYlists) || [];
+  loadPlaylists: async () => {
+    const playlists = (await Storage.get<Playlist[]>(STORAGE_KEYS.PLAYlists)) || [];
     set({playlists});
   },
 
@@ -36,9 +36,9 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
       updatedAt: Date.now(),
     };
 
-    set((state) => {
+    set(async (state) => {
       const playlists = [...state.playlists, newPlaylist];
-      Storage.set(STORAGE_KEYS.PLAYlists, playlists);
+      await Storage.set(STORAGE_KEYS.PLAYlists, playlists);
       return {playlists};
     });
 
@@ -46,15 +46,15 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
   },
 
   deletePlaylist: (playlistId) => {
-    set((state) => {
+    set(async (state) => {
       const playlists = state.playlists.filter((p) => p.id !== playlistId);
-      Storage.set(STORAGE_KEYS.PLAYlists, playlists);
+      await Storage.set(STORAGE_KEYS.PLAYlists, playlists);
       return {playlists};
     });
   },
 
   addTrackToPlaylist: (playlistId, trackId) => {
-    set((state) => {
+    set(async (state) => {
       const playlists = state.playlists.map((playlist) => {
         if (playlist.id === playlistId) {
           if (!playlist.tracks.includes(trackId)) {
@@ -67,13 +67,13 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
         }
         return playlist;
       });
-      Storage.set(STORAGE_KEYS.PLAYlists, playlists);
+      await Storage.set(STORAGE_KEYS.PLAYlists, playlists);
       return {playlists};
     });
   },
 
   removeTrackFromPlaylist: (playlistId, trackId) => {
-    set((state) => {
+    set(async (state) => {
       const playlists = state.playlists.map((playlist) => {
         if (playlist.id === playlistId) {
           return {
@@ -84,7 +84,7 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
         }
         return playlist;
       });
-      Storage.set(STORAGE_KEYS.PLAYlists, playlists);
+      await Storage.set(STORAGE_KEYS.PLAYlists, playlists);
       return {playlists};
     });
   },
@@ -92,7 +92,7 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
   setCurrentPlaylist: (playlist) => set({currentPlaylist: playlist}),
 
   updatePlaylist: (playlistId, updates) => {
-    set((state) => {
+    set(async (state) => {
       const playlists = state.playlists.map((playlist) => {
         if (playlist.id === playlistId) {
           return {
@@ -103,7 +103,7 @@ export const usePlaylistStore = create<PlaylistStore>((set, get) => ({
         }
         return playlist;
       });
-      Storage.set(STORAGE_KEYS.PLAYlists, playlists);
+      await Storage.set(STORAGE_KEYS.PLAYlists, playlists);
       return {playlists};
     });
   },

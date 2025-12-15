@@ -1,6 +1,31 @@
 import axios from 'axios';
+import Constants from 'expo-constants';
 import {SPOTIFY_API_BASE_URL, SPOTIFY_TOKEN_URL} from '@constants';
 import type {SpotifyTrack, SpotifySearchResponse, Track} from '@types';
+
+// Base64 encoding için helper fonksiyon
+function base64Encode(str: string): string {
+  if (typeof btoa !== 'undefined') {
+    // Web ortamı
+    return btoa(str);
+  }
+  // React Native için
+  const chars =
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+  let output = '';
+  for (let i = 0; i < str.length; i += 3) {
+    const a = str.charCodeAt(i);
+    const b = i + 1 < str.length ? str.charCodeAt(i + 1) : 0;
+    const c = i + 2 < str.length ? str.charCodeAt(i + 2) : 0;
+    const bitmap = (a << 16) | (b << 8) | c;
+    output +=
+      chars.charAt((bitmap >> 18) & 63) +
+      chars.charAt((bitmap >> 12) & 63) +
+      (i + 1 < str.length ? chars.charAt((bitmap >> 6) & 63) : '=') +
+      (i + 2 < str.length ? chars.charAt(bitmap & 63) : '=');
+  }
+  return output;
+}
 
 class SpotifyService {
   private accessToken: string | null = null;
@@ -12,18 +37,25 @@ class SpotifyService {
       return this.accessToken;
     }
 
-    // Not: Production'da bu credentials'ları environment variable'dan alın
-    const clientId = process.env.SPOTIFY_CLIENT_ID || '';
-    const clientSecret = process.env.SPOTIFY_CLIENT_SECRET || '';
+    // Expo'da .env değişkenleri expo-constants ile alınır
+    const clientId = Constants.expoConfig?.extra?.spotifyClientId || '';
+    const clientSecret = Constants.expoConfig?.extra?.spotifyClientSecret || '';
+
+    if (!clientId || !clientSecret) {
+      throw new Error('Spotify API credentials bulunamadı. app.json dosyasını kontrol edin.');
+    }
 
     try {
+      const credentials = `${clientId}:${clientSecret}`;
+      const encodedCredentials = base64Encode(credentials);
+
       const response = await axios.post(
         SPOTIFY_TOKEN_URL,
         'grant_type=client_credentials',
         {
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
-            Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+            Authorization: `Basic ${encodedCredentials}`,
           },
         },
       );

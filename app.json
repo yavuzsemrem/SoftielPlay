@@ -1,5 +1,44 @@
 {
-  "name": "SoftielPlay",
-  "displayName": "Softiel Play"
+  "expo": {
+    "name": "Softiel Play",
+    "slug": "softiel-play",
+    "version": "1.0.0",
+    "main": "index.js",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/logo.png",
+    "splash": {
+      "image": "./assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0A0A"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.softiel.play",
+      "icon": "./assets/logo.png"
+    },
+    "android": {
+      "package": "com.softiel.play",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo.png",
+        "backgroundColor": "#0A0A0A"
+      },
+      "icon": "./assets/logo.png"
+    },
+    "plugins": [
+      "expo-av",
+      "expo-secure-store"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id"
+      },
+      "spotifyClientId": "3ac0cd231e4343749e83b516c126cc23",
+      "spotifyClientSecret": "f25bfd8ddc5b45d59b35003794837b20"
+    }
+  }
 }
 

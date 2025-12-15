@@ -1,4 +1,4 @@
-import RNFS from 'react-native-fs';
+import * as FileSystem from 'expo-file-system';
 import {youtubeService} from './youtube.service';
 import {Storage} from '@utils/storage';
 import {STORAGE_KEYS} from '@constants';
@@ -6,13 +6,13 @@ import {useTrackStore} from '@store/track.store';
 import type {Track} from '@types';
 
 class DownloadService {
-  private downloadDir = `${RNFS.DocumentDirectoryPath}/downloads`;
+  private downloadDir = `${FileSystem.documentDirectory}downloads/`;
 
   async initialize(): Promise<void> {
     // Download klasörünü oluştur
-    const exists = await RNFS.exists(this.downloadDir);
-    if (!exists) {
-      await RNFS.mkdir(this.downloadDir);
+    const dirInfo = await FileSystem.getInfoAsync(this.downloadDir);
+    if (!dirInfo.exists) {
+      await FileSystem.makeDirectoryAsync(this.downloadDir, {intermediates: true});
     }
   }
 
@@ -26,32 +26,30 @@ class DownloadService {
 
       // Dosya adı oluştur
       const fileName = `${track.id}.mp3`;
-      const filePath = `${this.downloadDir}/${fileName}`;
+      const filePath = `${this.downloadDir}${fileName}`;
 
       // İndir
-      const downloadResult = await RNFS.downloadFile({
-        fromUrl: audioUrl,
-        toFile: filePath,
-      }).promise;
+      const downloadResult = await FileSystem.downloadAsync(audioUrl, filePath);
 
-      if (downloadResult.statusCode === 200) {
-        // Track'i güncelle
-        useTrackStore.getState().updateTrack(track.id, {
+      if (downloadResult.status === 200) {
+        // Track store'dan güncelle
+        const trackStore = useTrackStore.getState();
+        trackStore.updateTrack(track.id, {
           localPath: filePath,
           isDownloaded: true,
         });
 
         // İndirilen track listesine ekle
         const downloadedTracks =
-          Storage.get<string[]>(STORAGE_KEYS.DOWNLOADED_TRACKS) || [];
+          (await Storage.get<string[]>(STORAGE_KEYS.DOWNLOADED_TRACKS)) || [];
         if (!downloadedTracks.includes(track.id)) {
-          Storage.set(STORAGE_KEYS.DOWNLOADED_TRACKS, [
+          await Storage.set(STORAGE_KEYS.DOWNLOADED_TRACKS, [
             ...downloadedTracks,
             track.id,
           ]);
         }
 
-        useTrackStore.getState().markAsDownloaded(track.id);
+        trackStore.markAsDownloaded(track.id);
 
         return filePath;
       } else {
@@ -66,20 +64,22 @@ class DownloadService {
   // İndirilen track'i sil
   async deleteDownloadedTrack(trackId: string): Promise<void> {
     try {
-      const track = useTrackStore.getState().getTrack(trackId);
+      const trackStore = useTrackStore.getState();
+      const track = trackStore.getTrack(trackId);
+
       if (track?.localPath) {
-        const exists = await RNFS.exists(track.localPath);
-        if (exists) {
-          await RNFS.unlink(track.localPath);
+        const fileInfo = await FileSystem.getInfoAsync(track.localPath);
+        if (fileInfo.exists) {
+          await FileSystem.deleteAsync(track.localPath, {idempotent: true});
         }
       }
 
-      useTrackStore.getState().markAsNotDownloaded(trackId);
+      trackStore.markAsNotDownloaded(trackId);
 
       // İndirilen track listesinden çıkar
       const downloadedTracks =
-        Storage.get<string[]>(STORAGE_KEYS.DOWNLOADED_TRACKS) || [];
-      Storage.set(
+        (await Storage.get<string[]>(STORAGE_KEYS.DOWNLOADED_TRACKS)) || [];
+      await Storage.set(
         STORAGE_KEYS.DOWNLOADED_TRACKS,
         downloadedTracks.filter((id) => id !== trackId),
       );
@@ -97,4 +97,3 @@ class DownloadService {
 }
 
 export const downloadService = new DownloadService();
-

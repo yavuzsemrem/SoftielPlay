@@ -21,53 +21,53 @@ export const useTrackStore = create<TrackStore>((set, get) => ({
   tracks: [],
   downloadedTracks: [],
 
-  loadTracks: () => {
-    const tracks = Storage.get<Track[]>(STORAGE_KEYS.TRACKS) || [];
+  loadTracks: async () => {
+    const tracks = (await Storage.get<Track[]>(STORAGE_KEYS.TRACKS)) || [];
     const downloadedTracks =
-      Storage.get<string[]>(STORAGE_KEYS.DOWNLOADED_TRACKS) || [];
+      (await Storage.get<string[]>(STORAGE_KEYS.DOWNLOADED_TRACKS)) || [];
     set({tracks, downloadedTracks});
   },
 
   addTrack: (track) => {
-    set((state) => {
+    set(async (state) => {
       // Duplicate kontrolü
       if (state.tracks.find((t) => t.id === track.id)) {
         return state;
       }
 
       const tracks = [...state.tracks, track];
-      Storage.set(STORAGE_KEYS.TRACKS, tracks);
+      await Storage.set(STORAGE_KEYS.TRACKS, tracks);
       return {tracks};
     });
   },
 
   removeTrack: (trackId) => {
-    set((state) => {
+    set(async (state) => {
       const tracks = state.tracks.filter((t) => t.id !== trackId);
       const downloadedTracks = state.downloadedTracks.filter(
         (id) => id !== trackId,
       );
-      Storage.set(STORAGE_KEYS.TRACKS, tracks);
-      Storage.set(STORAGE_KEYS.DOWNLOADED_TRACKS, downloadedTracks);
+      await Storage.set(STORAGE_KEYS.TRACKS, tracks);
+      await Storage.set(STORAGE_KEYS.DOWNLOADED_TRACKS, downloadedTracks);
       return {tracks, downloadedTracks};
     });
   },
 
   updateTrack: (trackId, updates) => {
-    set((state) => {
+    set(async (state) => {
       const tracks = state.tracks.map((track) => {
         if (track.id === trackId) {
           return {...track, ...updates};
         }
         return track;
       });
-      Storage.set(STORAGE_KEYS.TRACKS, tracks);
+      await Storage.set(STORAGE_KEYS.TRACKS, tracks);
       return {tracks};
     });
   },
 
   markAsDownloaded: (trackId) => {
-    set((state) => {
+    set(async (state) => {
       const downloadedTracks = state.downloadedTracks.includes(trackId)
         ? state.downloadedTracks
         : [...state.downloadedTracks, trackId];
@@ -79,14 +79,14 @@ export const useTrackStore = create<TrackStore>((set, get) => ({
         return track;
       });
 
-      Storage.set(STORAGE_KEYS.DOWNLOADED_TRACKS, downloadedTracks);
-      Storage.set(STORAGE_KEYS.TRACKS, tracks);
+      await Storage.set(STORAGE_KEYS.DOWNLOADED_TRACKS, downloadedTracks);
+      await Storage.set(STORAGE_KEYS.TRACKS, tracks);
       return {tracks, downloadedTracks};
     });
   },
 
   markAsNotDownloaded: (trackId) => {
-    set((state) => {
+    set(async (state) => {
       const downloadedTracks = state.downloadedTracks.filter(
         (id) => id !== trackId,
       );
@@ -98,8 +98,8 @@ export const useTrackStore = create<TrackStore>((set, get) => ({
         return track;
       });
 
-      Storage.set(STORAGE_KEYS.DOWNLOADED_TRACKS, downloadedTracks);
-      Storage.set(STORAGE_KEYS.TRACKS, tracks);
+      await Storage.set(STORAGE_KEYS.DOWNLOADED_TRACKS, downloadedTracks);
+      await Storage.set(STORAGE_KEYS.TRACKS, tracks);
       return {tracks, downloadedTracks};
     });
   },

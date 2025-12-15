@@ -1,15 +1,17 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect} from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Image,
-  Slider,
 } from 'react-native';
+import Slider from '@react-native-community/slider';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {LinearGradient} from 'expo-linear-gradient';
+import {Ionicons} from '@expo/vector-icons';
+import {Colors} from '@constants/colors';
 import {usePlayerStore} from '@store/player.store';
-import TrackPlayer from 'react-native-track-player';
-import {Event} from 'react-native-track-player';
 
 export default function PlayerScreen() {
   const {
@@ -21,19 +23,17 @@ export default function PlayerScreen() {
     skipToNext,
     skipToPrevious,
     seekTo,
+    updatePosition,
   } = usePlayerStore();
 
-  const [currentPosition, setCurrentPosition] = useState(0);
-
   useEffect(() => {
-    const updatePosition = async () => {
-      const pos = await TrackPlayer.getPosition();
-      setCurrentPosition(pos);
-    };
+    // Position güncellemelerini başlat
+    const interval = setInterval(() => {
+      updatePosition();
+    }, 1000);
 
-    const interval = setInterval(updatePosition, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [currentTrack, updatePosition]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -43,117 +43,173 @@ export default function PlayerScreen() {
 
   if (!currentTrack) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.emptyText}>Çalan şarkı yok</Text>
-      </View>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <View style={styles.emptyContainer}>
+          <Ionicons name="musical-notes-outline" size={80} color={Colors.textTertiary} />
+          <Text style={styles.emptyText}>Çalan şarkı yok</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.artworkContainer}>
-        {currentTrack.artwork ? (
-          <Image source={{uri: currentTrack.artwork}} style={styles.artwork} />
-        ) : (
-          <View style={[styles.artwork, styles.artworkPlaceholder]}>
-            <Text style={styles.artworkPlaceholderText}>
-              {currentTrack.title.charAt(0)}
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <LinearGradient
+        colors={[Colors.gradientStart, Colors.gradientMiddle, Colors.gradientEnd, Colors.background]}
+        start={{x: 0, y: 0}}
+        end={{x: 0, y: 1}}
+        style={styles.gradient}>
+        <View style={styles.content}>
+          {/* Artwork */}
+          <View style={styles.artworkContainer}>
+            {currentTrack.artwork ? (
+              <Image
+                source={{uri: currentTrack.artwork}}
+                style={styles.artwork}
+              />
+            ) : (
+              <LinearGradient
+                colors={[Colors.primary, Colors.primaryDark]}
+                style={styles.artworkPlaceholder}>
+                <Ionicons name="musical-note" size={80} color={Colors.textPrimary} />
+              </LinearGradient>
+            )}
+          </View>
+
+          {/* Track Info */}
+          <View style={styles.infoContainer}>
+            <Text style={styles.title} numberOfLines={2}>
+              {currentTrack.title}
+            </Text>
+            <Text style={styles.artist} numberOfLines={1}>
+              {currentTrack.artist}
             </Text>
           </View>
-        )}
-      </View>
 
-      <View style={styles.infoContainer}>
-        <Text style={styles.title} numberOfLines={1}>
-          {currentTrack.title}
-        </Text>
-        <Text style={styles.artist} numberOfLines={1}>
-          {currentTrack.artist}
-        </Text>
-      </View>
+          {/* Progress */}
+          <View style={styles.progressContainer}>
+            <Slider
+              style={styles.slider}
+              minimumValue={0}
+              maximumValue={duration || 1}
+              value={position}
+              onSlidingComplete={seekTo}
+              minimumTrackTintColor={Colors.primary}
+              maximumTrackTintColor={Colors.border}
+              thumbTintColor={Colors.primary}
+            />
+            <View style={styles.timeContainer}>
+              <Text style={styles.time}>{formatTime(position)}</Text>
+              <Text style={styles.time}>{formatTime(duration)}</Text>
+            </View>
+          </View>
 
-      <View style={styles.progressContainer}>
-        <Slider
-          style={styles.slider}
-          minimumValue={0}
-          maximumValue={duration || 1}
-          value={currentPosition}
-          onSlidingComplete={seekTo}
-          minimumTrackTintColor="#1DB954"
-          maximumTrackTintColor="#333"
-          thumbTintColor="#1DB954"
-        />
-        <View style={styles.timeContainer}>
-          <Text style={styles.time}>{formatTime(currentPosition)}</Text>
-          <Text style={styles.time}>{formatTime(duration)}</Text>
+          {/* Controls */}
+          <View style={styles.controlsContainer}>
+            <TouchableOpacity
+              style={styles.controlButton}
+              onPress={skipToPrevious}
+              activeOpacity={0.7}>
+              <Ionicons name="play-skip-back" size={28} color={Colors.textPrimary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.playButton}
+              onPress={togglePlayPause}
+              activeOpacity={0.8}>
+              <LinearGradient
+                colors={[Colors.primary, Colors.primaryBright]}
+                style={styles.playButtonGradient}>
+                <Ionicons
+                  name={isPlaying ? 'pause' : 'play'}
+                  size={36}
+                  color={Colors.textPrimary}
+                />
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.controlButton}
+              onPress={skipToNext}
+              activeOpacity={0.7}>
+              <Ionicons name="play-skip-forward" size={28} color={Colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-
-      <View style={styles.controlsContainer}>
-        <TouchableOpacity
-          style={styles.controlButton}
-          onPress={skipToPrevious}>
-          <Text style={styles.controlButtonText}>⏮</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.playButton}
-          onPress={togglePlayPause}>
-          <Text style={styles.playButtonText}>{isPlaying ? '⏸' : '▶'}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.controlButton} onPress={skipToNext}>
-          <Text style={styles.controlButtonText}>⏭</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+      </LinearGradient>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
-    padding: 20,
+    backgroundColor: Colors.background,
+  },
+  gradient: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    padding: 24,
+    justifyContent: 'space-between',
+  },
+  emptyContainer: {
+    flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: Colors.textSecondary,
+    fontSize: 18,
+    marginTop: 16,
+    textAlign: 'center',
   },
   artworkContainer: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginTop: 20,
   },
   artwork: {
-    width: 300,
-    height: 300,
-    borderRadius: 8,
+    width: 320,
+    height: 320,
+    borderRadius: 20,
+    shadowColor: Colors.primary,
+    shadowOffset: {width: 0, height: 20},
+    shadowOpacity: 0.3,
+    shadowRadius: 30,
+    elevation: 20,
   },
   artworkPlaceholder: {
-    backgroundColor: '#1a1a1a',
+    width: 320,
+    height: 320,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  artworkPlaceholderText: {
-    fontSize: 80,
-    fontWeight: 'bold',
-    color: '#1DB954',
+    shadowColor: Colors.primary,
+    shadowOffset: {width: 0, height: 20},
+    shadowOpacity: 0.3,
+    shadowRadius: 30,
+    elevation: 20,
   },
   infoContainer: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginVertical: 32,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontSize: 26,
+    fontWeight: '700',
+    color: Colors.textPrimary,
     marginBottom: 8,
     textAlign: 'center',
+    letterSpacing: -0.5,
   },
   artist: {
     fontSize: 18,
-    color: '#b3b3b3',
+    color: Colors.textSecondary,
     textAlign: 'center',
   },
   progressContainer: {
-    marginBottom: 40,
+    marginVertical: 24,
   },
   slider: {
     width: '100%',
@@ -162,17 +218,19 @@ const styles = StyleSheet.create({
   timeContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: 12,
   },
   time: {
-    fontSize: 12,
-    color: '#b3b3b3',
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontWeight: '500',
   },
   controlsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 32,
+    marginBottom: 20,
   },
   controlButton: {
     width: 56,
@@ -180,26 +238,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  controlButtonText: {
-    fontSize: 32,
-    color: '#fff',
-  },
   playButton: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#1DB954',
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    overflow: 'hidden',
+    shadowColor: Colors.primary,
+    shadowOffset: {width: 0, height: 8},
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 16,
+  },
+  playButtonGradient: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  playButtonText: {
-    fontSize: 36,
-    color: '#fff',
-  },
-  emptyText: {
-    color: '#b3b3b3',
-    fontSize: 16,
-    textAlign: 'center',
-  },
 });
-
