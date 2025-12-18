@@ -5,20 +5,30 @@
 ### 1. Root Directory Ayarlayın
 - Railway dashboard → Service → Settings
 - "Root Directory" = `server`
-- Save
+- **Save butonuna tıklayın!**
 
-### 2. Environment Variables Ekle (ZORUNLU!)
+### 2. Environment Variables Ekle (ZORUNLU - EN ÖNEMLİSİ!)
 - Railway dashboard → Service → Variables
-- Şu iki variable'ı ekleyin:
-  ```
-  NIXPACKS_NODE_VERSION=20
-  SKIP_SYSTEM_CHECK=true
-  ```
+- **"New Variable" butonuna tıklayın**
+- Şu iki variable'ı tek tek ekleyin:
+  
+  **Variable 1:**
+  - Key: `NIXPACKS_NODE_VERSION`
+  - Value: `20`
+  - **Add** butonuna tıklayın
+  
+  **Variable 2:**
+  - Key: `SKIP_SYSTEM_CHECK`
+  - Value: `true`
+  - **Add** butonuna tıklayın
+
 - **`NIXPACKS_NODE_VERSION=20` olmadan Node.js 18 kullanılır ve hata alırsınız!**
+- **Her iki variable'ın da eklendiğini kontrol edin!**
 
 ### 3. Deploy
 - Railway otomatik olarak yeniden deploy edecek
 - Veya "Redeploy" butonuna tıklayın
+- **Deploy loglarında `nodejs-20_x` görmelisiniz, `nodejs_18` değil!**
 
 ## Kontrol Listesi
 

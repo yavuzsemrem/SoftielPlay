@@ -77,9 +77,19 @@ Bu hata genellikle şu sebeplerden kaynaklanır:
 **Sorun:** `yt-dlp-exec` paketi Python gerektiriyor ama Railway'da kurulu değil.
 
 **Çözüm:**
-1. `server/nixpacks.toml` dosyası oluşturuldu
+1. `server/nixpacks.toml` dosyası mevcut (Python ve FFmpeg kurulumu için)
 2. Bu dosya Railway'a Python ve yt-dlp kurmasını söylüyor
 3. Railway otomatik olarak Python ve yt-dlp kuracak
+
+## "attribute 'nodejs-20_x' missing" Hatası
+
+**Sorun:** `nixpacks.toml` dosyasında `pkgs.nodejs-20_x` belirtilmiş ama nixpkgs versiyonunda yok.
+
+**Çözüm:**
+1. `nixpacks.toml` dosyası güncellendi - Node.js artık burada belirtilmiyor
+2. Node.js versiyonu **SADECE** `NIXPACKS_NODE_VERSION=20` environment variable ile belirleniyor
+3. `NIXPACKS_NODE_VERSION=20` environment variable'ının eklendiğinden emin olun
+4. `nixpacks.toml` sadece Python ve FFmpeg için kullanılıyor
 
 ## Adım Adım Düzeltme
 
