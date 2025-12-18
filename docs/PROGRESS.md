@@ -349,8 +349,57 @@
   - ✅ `keyExtractor` spotify_id kullanıyor
 - ✅ Spotify Metadata entegrasyonu ile profesyonel arama yapısı kuruldu
 
+#### 18. Faz 2.2: Stream URL Generator (Müzik Akış Motoru)
+- ✅ Backend: `server/src/features/player/routes/playerRoutes.js` oluşturuldu
+  - ✅ `GET /api/stream/:videoId` endpoint'i yazıldı
+  - ✅ yt-dlp kullanarak YouTube video ID'sini oynatılabilir ses URL'sine dönüştürüyor
+  - ✅ `-f "bestaudio[ext=m4a]/bestaudio"` parametresi kullanılıyor (iOS ve Android native oynatıcılarıyla uyumlu)
+  - ✅ `-g` parametresi ile sadece URL döndürülüyor (indirme yapılmıyor)
+  - ✅ Yanıt formatı: `{ success: true, videoId: string, streamUrl: string }`
+  - ✅ Error handling: Video kısıtlıysa 404, genel hatalar için 500 döndürülüyor
+  - ✅ Detaylı hata mesajları ve loglama eklendi
+- ✅ Frontend: `app/features/player/services/playerApi.js` oluşturuldu
+  - ✅ `getStreamUrl(videoId)` fonksiyonu yazıldı
+  - ✅ Axios kullanarak backend API'ye istek atıyor
+  - ✅ API URL yapılandırması useSearch ile aynı mantık (environment variable, app.json, fallback)
+  - ✅ 30 saniye timeout ile güvenli istek yapısı
+  - ✅ Detaylı error handling (404, 500, network hataları)
+- ✅ `server/index.js`'e player routes eklendi
+- ✅ Faz 2.2: Stream URL Generator (Müzik Akış Motoru) tamamlandı
+
+#### 19. Faz 3.1: Global Audio Controller & Mini Player
+- ✅ `expo-av` ve `zustand` paketleri kuruldu
+- ✅ Player Store: `app/features/player/store/usePlayerStore.js` oluşturuldu
+  - ✅ Zustand ile global state yönetimi
+  - ✅ `currentTrack`, `isPlaying`, `sound`, `position`, `duration`, `isLoading`, `error` durumları
+  - ✅ `playTrack(track)` fonksiyonu: Spotify ID'den videoId alıp stream URL'i alıyor, expo-av ile çalıyor
+  - ✅ `togglePlay()` fonksiyonu: Oynat/Durdur toggle
+  - ✅ `seek(position)` fonksiyonu: Pozisyon değiştirme
+  - ✅ `stopTrack()` fonksiyonu: Şarkıyı durdur ve temizle
+  - ✅ `reset()` fonksiyonu: Store'u sıfırla
+  - ✅ Otomatik videoId alma: Spotify ID'den `/api/match-youtube/:spotifyId` endpoint'i ile videoId alınıyor
+  - ✅ Status callback ile gerçek zamanlı pozisyon ve süre güncellemesi
+- ✅ Mini Player UI: `app/features/player/components/MiniPlayer.js` oluşturuldu
+  - ✅ Premium tasarım: absolute bottom-0, transparan blur efektli (BlurView)
+  - ✅ Spotify tarzı ince çubuk tasarımı
+  - ✅ Sol tarafta yuvarlak dönen albüm kapağı (çalarken sürekli dönüyor)
+  - ✅ Ortada şarkı adı/sanatçı bilgileri
+  - ✅ Sağda Oynat/Durdur butonu (mavi gradyan, glow shadow)
+  - ✅ En üstte ince progress bar (mavi çizgi)
+  - ✅ Aşağıdan yukarı doğru yumuşak kayma animasyonu (Reanimated)
+  - ✅ Şarkı değiştiğinde veya açıldığında animasyon
+  - ✅ Loading state gösterimi
+- ✅ Entegrasyon: `app/(tabs)/_layout.tsx` içine MiniPlayer eklendi
+  - ✅ Her sekmede (Home, Search, Playlist, Profile) görünür
+  - ✅ Tab bar'ın üstünde konumlandırıldı
+  - ✅ SafeAreaInsets ile Dynamic Island uyumluluğu
+- ✅ Search Screen entegrasyonu: `app/(tabs)/two.tsx` güncellendi
+  - ✅ SongItem'a tıklandığında `playTrack(item)` fonksiyonu çağrılıyor
+  - ✅ usePlayerStore'dan playTrack fonksiyonu import edildi
+- ✅ Faz 3.1: Global Audio Player ve Mini Player entegrasyonu tamamlandı
+
 ### 🔄 Sonraki Adımlar
-- Player feature'ının geliştirilmesi (YouTube audio ile)
+- Player UI component'ının geliştirilmesi (expo-av ile ses çalma)
 - Şarkı çalma işlevi için `/api/match-youtube/:spotifyId` endpoint'i entegrasyonu
 - Şarkı indirme servisi
 - Çalma listesi detay sayfası

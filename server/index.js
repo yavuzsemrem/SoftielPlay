@@ -17,7 +17,9 @@ app.get('/health', (req, res) => {
 
 // Routes
 const searchRoutes = require('./src/features/search/routes/searchRoutes');
+const playerRoutes = require('./src/features/player/routes/playerRoutes');
 app.use('/api', searchRoutes);
+app.use('/api', playerRoutes);
 
 // Sunucuyu başlat
 async function startServer() {

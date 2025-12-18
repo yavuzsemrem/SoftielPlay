@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSearch } from '@/features/search/hooks/useSearch';
 import SongItem from '@/features/search/components/SongItem';
+import usePlayerStore from '@/features/player/store/usePlayerStore';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -69,6 +70,9 @@ export default function SearchScreen() {
 
   // useSearch hook'unu kullan
   const { results, isLoading, isError, error } = useSearch(searchQuery);
+  
+  // Player store'dan playTrack fonksiyonunu al
+  const playTrack = usePlayerStore((state) => state.playTrack);
   
   // Navigation bar yüksekliği: 60 (tab bar) + insets.bottom + padding
   const tabBarHeight = 60 + insets.bottom + Math.max(insets.bottom, 6);
@@ -244,8 +248,8 @@ export default function SearchScreen() {
                       album_name={item.album_name}
                       duration={item.duration}
                       onPress={() => {
-                        // TODO: Şarkı çalma işlevi eklenecek - /api/match-youtube/:spotifyId endpoint'i kullanılacak
-                        console.log('Şarkı seçildi:', item);
+                        console.log('🎵 Şarkı seçildi:', item.track_name);
+                        playTrack(item);
                       }}
                     />
                   );
