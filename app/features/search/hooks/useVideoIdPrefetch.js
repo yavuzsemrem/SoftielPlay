@@ -105,9 +105,9 @@ export function useVideoIdPrefetch(results) {
       // Prefetch Promise'ini oluştur ve store'a kaydet
       const prefetchPromise = (async () => {
         try {
-          console.log('⚡ Prefetch: YouTube video ID alınıyor:', track.spotify_id);
+          console.log('⚡ Prefetch: YouTube video ID alınıyor:', item.spotify_id);
           
-          const response = await axios.get(`${API_BASE_URL}/api/match-youtube/${track.spotify_id}`, {
+          const response = await axios.get(`${API_BASE_URL}/api/match-youtube/${item.spotify_id}`, {
             timeout: 30000, // 30 saniye (API yavaş olduğu için artırdık)
           });
           
@@ -118,7 +118,7 @@ export function useVideoIdPrefetch(results) {
             usePlayerStore.setState((state) => ({
               videoIdCache: {
                 ...state.videoIdCache,
-                [track.spotify_id]: videoId,
+                [item.spotify_id]: videoId,
               },
             }));
             console.log('✅ Prefetch: YouTube video ID cache\'lendi:', videoId);
@@ -157,9 +157,9 @@ export function useVideoIdPrefetch(results) {
           }
         } catch (error) {
           // Prefetch hatalarını sessizce yok say (kullanıcıyı rahatsız etme)
-          console.log('⚠️ Prefetch hatası (sessizce yok sayıldı):', track.spotify_id, error.message);
+          console.log('⚠️ Prefetch hatası (sessizce yok sayıldı):', item.spotify_id, error.message);
           // Hata durumunda prefetched set'ten çıkar, böylece tekrar deneyebilir
-          prefetchedRef.current.delete(track.spotify_id);
+          prefetchedRef.current.delete(item.spotify_id);
           throw error;
         } finally {
           // Prefetch tamamlandı, promise'i store'dan temizle

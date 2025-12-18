@@ -180,37 +180,42 @@ router.get('/match-youtube/:spotifyId', async (req, res) => {
     }
 
     // 1. ÖNCE SUPABASE'DEN KALICI MAPPING'E BAK (ÇOK HIZLI - <10ms)
-    const mapping = await getSongMapping(spotifyId);
-    if (mapping && mapping.youtube_id) {
-      const dbTime = Date.now() - startTime;
-      console.log(`⚡⚡ Supabase mapping hit: ${spotifyId} -> ${mapping.youtube_id} (${dbTime}ms)`);
-      
-      // Spotify track bilgilerini al (cache için)
-      const track = await spotifyService.getTrack(spotifyId);
-      
-      const trackInfo = {
-        track_name: track.track_name,
-        artist_name: track.artist_name,
-        album_art: track.album_art,
-      };
+    try {
+      const mapping = await getSongMapping(spotifyId);
+      if (mapping && mapping.youtube_id) {
+        const dbTime = Date.now() - startTime;
+        console.log(`⚡⚡ Supabase mapping hit: ${spotifyId} -> ${mapping.youtube_id} (${dbTime}ms)`);
+        
+        // Spotify track bilgilerini al (cache için)
+        const track = await spotifyService.getTrack(spotifyId);
+        
+        const trackInfo = {
+          track_name: track.track_name,
+          artist_name: track.artist_name,
+          album_art: track.album_art,
+        };
 
-      const bestMatch = {
-        videoId: mapping.youtube_id,
-        title: `${track.track_name} - ${track.artist_name}`,
-        duration: mapping.duration_ms ? `${Math.floor(mapping.duration_ms / 60000)}:${String(Math.floor((mapping.duration_ms % 60000) / 1000)).padStart(2, '0')}` : '0:00',
-        duration_seconds: mapping.duration_ms ? Math.floor(mapping.duration_ms / 1000) : 0,
-        thumbnail: `https://img.youtube.com/vi/${mapping.youtube_id}/maxresdefault.jpg`,
-        match_score: 100, // Kalıcı mapping = mükemmel eşleşme
-      };
+        const bestMatch = {
+          videoId: mapping.youtube_id,
+          title: `${track.track_name} - ${track.artist_name}`,
+          duration: mapping.duration_ms ? `${Math.floor(mapping.duration_ms / 60000)}:${String(Math.floor((mapping.duration_ms % 60000) / 1000)).padStart(2, '0')}` : '0:00',
+          duration_seconds: mapping.duration_ms ? Math.floor(mapping.duration_ms / 1000) : 0,
+          thumbnail: `https://img.youtube.com/vi/${mapping.youtube_id}/maxresdefault.jpg`,
+          match_score: 100, // Kalıcı mapping = mükemmel eşleşme
+        };
 
-      return res.json({
-        success: true,
-        spotify_id: spotifyId,
-        spotify_track: trackInfo,
-        youtube_match: bestMatch,
-        cached: true,
-        source: 'supabase'
-      });
+        return res.json({
+          success: true,
+          spotify_id: spotifyId,
+          spotify_track: trackInfo,
+          youtube_match: bestMatch,
+          cached: true,
+          source: 'supabase'
+        });
+      }
+    } catch (supabaseError) {
+      // Supabase hatası olsa bile devam et (fallback)
+      console.warn('⚠️ Supabase mapping kontrolü hatası, YouTube aramasına geçiliyor:', supabaseError.message);
     }
 
     // 2. SUPABASE'DE YOKSA YOUTUBE-SR İLE ARAMA YAP (HIZLI - ~2-5s)
@@ -311,8 +316,12 @@ router.get('/match-youtube/:spotifyId', async (req, res) => {
       });
     }
 
-    // 3. SUPABASE'E KAYDET (KALICI MAPPING)
-    await saveSongMapping(spotifyId, bestMatch.videoId, track.duration_ms);
+    // 3. SUPABASE'E KAYDET (KALICI MAPPING) - Hata olsa bile devam et
+    try {
+      await saveSongMapping(spotifyId, bestMatch.videoId, track.duration_ms);
+    } catch (saveError) {
+      console.warn('⚠️ Supabase mapping kayıt hatası (devam ediliyor):', saveError.message);
+    }
 
     const trackInfo = {
       track_name: track.track_name,
