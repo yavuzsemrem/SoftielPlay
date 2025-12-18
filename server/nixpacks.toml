@@ -1,18 +1,16 @@
 # Nixpacks configuration for Railway
 # Node.js versiyonu NIXPACKS_NODE_VERSION environment variable ile belirlenir
-# Python manuel olarak nixPkgs içinde belirtiliyor (çakışma önlemek için)
+# Python providers ile kurulacak
+# nixPkgs kullanmıyoruz - çakışmayı önlemek için (iki nixpkgs dosyası oluşmasını engeller)
 
-providers = ["node"]
+providers = ["node", "python"]
 
 [phases.setup]
-# Python ve FFmpeg manuel olarak ekleniyor
-# pip Python ile birlikte gelir
-nixPkgs = ["pkgs.python3", "pkgs.ffmpeg"]
+# nixPkgs kullanmıyoruz - çakışmayı önlemek için
 
 [phases.install]
 cmds = [
   "npm ci --omit=dev",
-  "python3 -m ensurepip --user || true",
   "pip3 install --user yt-dlp"
 ]
 
