@@ -23,15 +23,9 @@
     "mongoose": "^8.0.3",
     "node-cache": "^5.1.2",
     "spotify-web-api-node": "^5.0.2",
-    "youtube-sr": "^4.3.4"
+    "youtube-sr": "^4.3.12"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
   }
 }
-
-
-
-
-
-

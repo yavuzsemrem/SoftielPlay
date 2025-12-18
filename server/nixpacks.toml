@@ -13,7 +13,7 @@ cmds = [
   "python3 -m venv /app/venv",
   "/app/venv/bin/pip install yt-dlp",
   "export PATH=/app/venv/bin:$PATH",
-  "npm ci --omit=dev"
+  "npm install --omit=dev"
 ]
 
 [phases.build]
