@@ -45,11 +45,28 @@ router.get('/search', async (req, res) => {
       });
     }
 
-    // Spotify'da arama yap
+    // Sadece Spotify'da arama yap - YouTube kullanma
+    console.log('🔍 Spotify arama yapılıyor:', q.trim());
     const tracks = await spotifyService.searchTracks(q.trim(), 15);
 
-    // Sonuçları formatla
+    if (!tracks || tracks.length === 0) {
+      console.log('⚠️ Spotify arama sonucu bulunamadı');
+      return res.json({
+        success: true,
+        query: q.trim(),
+        count: 0,
+        results: [],
+      });
+    }
+
+    // Sonuçları formatla - Sadece Spotify formatı
     const results = tracks.map((track) => {
+      // Spotify formatını doğrula
+      if (!track.spotify_id || !track.track_name || !track.artist_name) {
+        console.warn('⚠️ Geçersiz Spotify track formatı:', track);
+        return null;
+      }
+
       // Duration'ı ms'den dakika:saniye formatına çevir
       const durationMs = track.duration_ms || 0;
       const totalSeconds = Math.floor(durationMs / 1000);
@@ -61,13 +78,15 @@ router.get('/search', async (req, res) => {
         spotify_id: track.spotify_id,
         track_name: track.track_name,
         artist_name: track.artist_name,
-        album_art: track.album_art,
-        album_name: track.album_name,
+        album_art: track.album_art || null,
+        album_name: track.album_name || null,
         duration: durationFormatted,
-        duration_ms: track.duration_ms,
-        preview_url: track.preview_url,
+        duration_ms: track.duration_ms || null,
+        preview_url: track.preview_url || null,
       };
-    });
+    }).filter(track => track !== null); // Geçersiz track'leri filtrele
+
+    console.log(`✅ Spotify arama tamamlandı: ${results.length} sonuç bulundu`);
 
     res.json({
       success: true,
@@ -77,10 +96,14 @@ router.get('/search', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Spotify arama hatası:', error);
+    console.error('❌ Spotify arama hatası:', error);
+    // Hata durumunda boş sonuç döndür, YouTube'a fallback yapma
     res.status(500).json({ 
+      success: false,
       error: 'Arama sırasında hata oluştu',
-      message: error.message 
+      message: error.message,
+      results: [],
+      count: 0
     });
   }
 });

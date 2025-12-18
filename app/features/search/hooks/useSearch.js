@@ -94,48 +94,52 @@ export function useSearch(query) {
 
       console.log('✅ Arama sonucu:', response.data);
       
-      // API'den gelen verileri normalize et
-      // Hem Spotify formatını (track_name, artist_name, album_art, spotify_id) 
-      // hem de YouTube formatını (title, artist, thumbnail, videoId) destekle
-      const normalizedResults = (response.data.results || []).map((item) => {
-        // Eğer Spotify formatında geliyorsa (track_name varsa), olduğu gibi döndür
-        if (item.track_name && item.artist_name) {
-          return {
-            spotify_id: item.spotify_id || null,
-            track_name: item.track_name,
-            artist_name: item.artist_name,
-            album_art: item.album_art || null,
-            album_name: item.album_name || null,
-            duration: item.duration || '0:00',
-            duration_ms: item.duration_ms || null,
-            preview_url: item.preview_url || null,
-          };
+      // API'den gelen verileri doğrula ve filtrele
+      // Sadece Spotify formatını kabul et (track_name, artist_name, album_art, spotify_id)
+      // YouTube formatındaki verileri filtrele
+      const spotifyResults = (response.data.results || []).filter((item) => {
+        // Spotify formatında mı kontrol et
+        const isSpotifyFormat = item.track_name && item.artist_name && item.spotify_id;
+        
+        // YouTube formatında mı kontrol et (title, artist, videoId varsa)
+        const isYouTubeFormat = item.title && item.artist && item.videoId;
+        
+        // YouTube formatındaki verileri filtrele
+        if (isYouTubeFormat) {
+          console.warn('⚠️ YouTube formatında veri filtrelendi:', item);
+          return false;
         }
         
-        // Eğer YouTube formatında geliyorsa (title, artist varsa), Spotify formatına çevir
-        // NOT: Bu geçici bir çözüm. Backend Spotify formatında döndürmeli.
-        if (item.title && item.artist) {
-          console.warn('⚠️ API YouTube formatında veri döndürüyor. Backend güncellenmeli.');
-          return {
-            spotify_id: item.videoId || null, // Geçici olarak videoId kullan
-            track_name: item.title,
-            artist_name: item.artist,
-            album_art: item.thumbnail || null,
-            album_name: null,
-            duration: item.duration || '0:00',
-            duration_ms: null,
-            preview_url: null,
-          };
+        // Spotify formatındaki verileri kabul et
+        if (isSpotifyFormat) {
+          return true;
         }
         
-        // Bilinmeyen format, olduğu gibi döndür
-        return item;
+        // Bilinmeyen formatları da filtrele
+        console.warn('⚠️ Bilinmeyen format filtrelendi:', item);
+        return false;
+      }).map((item) => {
+        // Spotify formatını normalize et
+        return {
+          spotify_id: item.spotify_id,
+          track_name: item.track_name,
+          artist_name: item.artist_name,
+          album_art: item.album_art || null,
+          album_name: item.album_name || null,
+          duration: item.duration || '0:00',
+          duration_ms: item.duration_ms || null,
+          preview_url: item.preview_url || null,
+        };
       });
+      
+      if (spotifyResults.length === 0 && (response.data.results || []).length > 0) {
+        console.error('❌ API Spotify formatında veri döndürmedi! Backend kontrol edilmeli.');
+      }
       
       return {
         ...response.data,
-        results: normalizedResults,
-        count: normalizedResults.length,
+        results: spotifyResults,
+        count: spotifyResults.length,
       };
     },
     enabled: Boolean(debouncedQuery && debouncedQuery.trim().length > 0), // Sadece query varsa çalıştır
