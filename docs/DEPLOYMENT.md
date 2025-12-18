@@ -284,3 +284,4 @@ Production build'de environment variable kullanın:
 - `npx expo start --clear` ile cache'i temizleyin
 - `app.json` değişikliklerinden sonra uygulamayı yeniden build edin
 
+

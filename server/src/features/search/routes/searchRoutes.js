@@ -5,6 +5,7 @@ const { promisify } = require('util');
 const fs = require('fs');
 const path = require('path');
 const execAsync = promisify(exec);
+const spotifyService = require('../../../services/spotifyService');
 
 /**
  * yt-dlp komutunun yolunu bulur
@@ -29,8 +30,9 @@ function getYtDlpCommand() {
 }
 
 /**
- * YouTube arama endpoint'i
+ * Spotify arama endpoint'i
  * GET /api/search?q=query
+ * Spotify'dan metadata alır (album_art, track_name, artist_name, spotify_id)
  */
 router.get('/search', async (req, res) => {
   try {
@@ -43,12 +45,71 @@ router.get('/search', async (req, res) => {
       });
     }
 
-    // YouTube arama yap - ytsearch kullanarak
-    const searchQuery = `ytsearch15:${q.trim()}`;
+    // Spotify'da arama yap
+    const tracks = await spotifyService.searchTracks(q.trim(), 15);
+
+    // Sonuçları formatla
+    const results = tracks.map((track) => {
+      // Duration'ı ms'den dakika:saniye formatına çevir
+      const durationMs = track.duration_ms || 0;
+      const totalSeconds = Math.floor(durationMs / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      const durationFormatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+      return {
+        spotify_id: track.spotify_id,
+        track_name: track.track_name,
+        artist_name: track.artist_name,
+        album_art: track.album_art,
+        album_name: track.album_name,
+        duration: durationFormatted,
+        duration_ms: track.duration_ms,
+        preview_url: track.preview_url,
+      };
+    });
+
+    res.json({
+      success: true,
+      query: q.trim(),
+      count: results.length,
+      results: results,
+    });
+
+  } catch (error) {
+    console.error('Spotify arama hatası:', error);
+    res.status(500).json({ 
+      error: 'Arama sırasında hata oluştu',
+      message: error.message 
+    });
+  }
+});
+
+/**
+ * YouTube video eşleştirme endpoint'i
+ * GET /api/match-youtube/:spotifyId
+ * Spotify track bilgilerini alıp YouTube'da en doğru videoyu bulur
+ */
+router.get('/match-youtube/:spotifyId', async (req, res) => {
+  try {
+    const { spotifyId } = req.params;
+
+    if (!spotifyId) {
+      return res.status(400).json({ 
+        error: 'Spotify ID gerekli',
+        message: 'spotifyId parametresi boş olamaz' 
+      });
+    }
+
+    // Spotify'dan track bilgilerini al
+    const track = await spotifyService.getTrack(spotifyId);
+
+    // YouTube'da arama yap: "track_name artist_name"
+    const searchQuery = `${track.track_name} ${track.artist_name}`;
     const ytDlpCmd = getYtDlpCommand();
     
-    // yt-dlp-exec ile arama yap
-    const searchCommand = `"${ytDlpCmd}" "${searchQuery}" --dump-json --no-warnings --no-playlist --flat-playlist`;
+    // yt-dlp ile arama yap (en iyi eşleşmeyi bulmak için ilk 5 sonucu kontrol et)
+    const searchCommand = `"${ytDlpCmd}" "ytsearch5:${searchQuery}" --dump-json --no-warnings --no-playlist`;
     
     let searchOutput;
     try {
@@ -57,63 +118,96 @@ router.get('/search', async (req, res) => {
         timeout: 30000 // 30 saniye timeout
       });
       searchOutput = stdout;
-    } catch (execError) {
-      // Eğer flat-playlist çalışmazsa, normal arama dene
-      const normalCommand = `"${ytDlpCmd}" "ytsearch15:${q.trim()}" --dump-json --no-warnings --no-playlist`;
-      try {
-        const { stdout } = await execAsync(normalCommand, { 
-          maxBuffer: 10 * 1024 * 1024,
-          timeout: 30000
-        });
-        searchOutput = stdout;
-      } catch (error) {
-        console.error('Arama komutu hatası:', error);
-        return res.status(500).json({ 
-          error: 'Arama sırasında hata oluştu',
-          message: error.message 
-        });
-      }
+    } catch (error) {
+      console.error('YouTube arama komutu hatası:', error);
+      return res.status(500).json({ 
+        error: 'YouTube arama sırasında hata oluştu',
+        message: error.message 
+      });
     }
 
     // JSON çıktısını parse et
     const lines = searchOutput.split('\n').filter(line => line.trim());
-    const results = [];
+    let bestMatch = null;
+    let bestScore = 0;
+
+    // Track adını ve sanatçı adını normalize et (karşılaştırma için)
+    const normalizeString = (str) => {
+      return str
+        .toLowerCase()
+        .replace(/[^\w\s]/g, '') // Özel karakterleri kaldır
+        .replace(/\s+/g, ' ') // Çoklu boşlukları tek boşluğa çevir
+        .trim();
+    };
+
+    const normalizedTrackName = normalizeString(track.track_name);
+    const normalizedArtistName = normalizeString(track.artist_name);
 
     for (const line of lines) {
       try {
         const video = JSON.parse(line);
         
-        // Video bilgilerini çıkar
         if (video.id && video.title) {
-          // Süreyi saniyeden dakika:saniye formatına çevir
-          const duration = video.duration || 0;
-          const minutes = Math.floor(duration / 60);
-          const seconds = duration % 60;
-          const durationFormatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-          // Thumbnail URL'ini al (en yüksek kaliteli)
-          let thumbnail = null;
-          if (video.thumbnail) {
-            thumbnail = video.thumbnail;
-          } else if (video.thumbnails && video.thumbnails.length > 0) {
-            // En yüksek çözünürlüklü thumbnail'i al
-            thumbnail = video.thumbnails[video.thumbnails.length - 1].url;
-          } else if (video.id) {
-            // Fallback: YouTube thumbnail URL'i oluştur
-            thumbnail = `https://img.youtube.com/vi/${video.id}/maxresdefault.jpg`;
+          // Video başlığını normalize et
+          const normalizedVideoTitle = normalizeString(video.title);
+          
+          // Eşleşme skoru hesapla
+          let score = 0;
+          
+          // Track adı eşleşmesi
+          if (normalizedVideoTitle.includes(normalizedTrackName)) {
+            score += 10;
+          }
+          
+          // Sanatçı adı eşleşmesi
+          if (normalizedVideoTitle.includes(normalizedArtistName)) {
+            score += 5;
+          }
+          
+          // Tam eşleşme bonusu
+          if (normalizedVideoTitle === `${normalizedTrackName} ${normalizedArtistName}` ||
+              normalizedVideoTitle === `${normalizedArtistName} ${normalizedTrackName}`) {
+            score += 20;
           }
 
-          results.push({
-            videoId: video.id,
-            title: video.title || 'Başlık yok',
-            artist: video.uploader || video.channel || video.channel_name || 'Bilinmeyen sanatçı',
-            thumbnail: thumbnail,
-            duration: durationFormatted,
-          });
+          // Süre uyumu (Spotify duration ile karşılaştır)
+          if (video.duration && track.duration_ms) {
+            const videoDurationMs = video.duration * 1000;
+            const durationDiff = Math.abs(videoDurationMs - track.duration_ms);
+            // 10 saniyeden az fark varsa bonus
+            if (durationDiff < 10000) {
+              score += 5;
+            }
+          }
 
-          // Sonuç sayısını 15 ile sınırla
-          if (results.length >= 15) {
-            break;
+          // En yüksek skorlu videoyu seç
+          if (score > bestScore) {
+            bestScore = score;
+            
+            // Süreyi formatla
+            const duration = video.duration || 0;
+            const minutes = Math.floor(duration / 60);
+            const seconds = duration % 60;
+            const durationFormatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+            // Thumbnail URL'ini al
+            let thumbnail = null;
+            if (video.thumbnail) {
+              thumbnail = video.thumbnail;
+            } else if (video.thumbnails && video.thumbnails.length > 0) {
+              thumbnail = video.thumbnails[video.thumbnails.length - 1].url;
+            } else if (video.id) {
+              thumbnail = `https://img.youtube.com/vi/${video.id}/maxresdefault.jpg`;
+            }
+
+            bestMatch = {
+              videoId: video.id,
+              title: video.title,
+              duration: durationFormatted,
+              duration_seconds: video.duration || 0,
+              thumbnail: thumbnail,
+              match_score: score,
+            };
           }
         }
       } catch (parseError) {
@@ -122,24 +216,33 @@ router.get('/search', async (req, res) => {
       }
     }
 
-    // Sonuç sayısını 10-15 arasında sınırla
-    const limitedResults = results.slice(0, 15);
+    if (!bestMatch) {
+      return res.status(404).json({ 
+        error: 'YouTube video bulunamadı',
+        message: 'Arama sonuçlarında uygun video bulunamadı' 
+      });
+    }
 
     res.json({
       success: true,
-      query: q.trim(),
-      count: limitedResults.length,
-      results: limitedResults,
+      spotify_id: spotifyId,
+      spotify_track: {
+        track_name: track.track_name,
+        artist_name: track.artist_name,
+        album_art: track.album_art,
+      },
+      youtube_match: bestMatch,
     });
 
   } catch (error) {
-    console.error('Arama hatası:', error);
+    console.error('YouTube eşleştirme hatası:', error);
     res.status(500).json({ 
-      error: 'Arama sırasında hata oluştu',
+      error: 'YouTube eşleştirme sırasında hata oluştu',
       message: error.message 
     });
   }
 });
 
 module.exports = router;
+
 

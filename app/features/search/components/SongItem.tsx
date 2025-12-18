@@ -37,19 +37,21 @@ function ScalePressable({ children, onPress, style, ...props }: any) {
 }
 
 interface SongItemProps {
-  videoId: string;
-  title: string;
-  artist: string;
-  thumbnail: string | null;
+  spotify_id: string;
+  track_name: string;
+  artist_name: string;
+  album_art: string | null;
+  album_name?: string | null;
   duration: string;
   onPress?: () => void;
 }
 
 export default function SongItem({ 
-  videoId, 
-  title, 
-  artist, 
-  thumbnail, 
+  spotify_id, 
+  track_name, 
+  artist_name, 
+  album_art, 
+  album_name,
   duration,
   onPress 
 }: SongItemProps) {
@@ -79,15 +81,16 @@ export default function SongItem({
           elevation: 3,
         }}
       >
-        {/* Thumbnail veya Placeholder */}
-        {thumbnail ? (
+        {/* Album Art (Kare görsel - Spotify formatı) */}
+        {album_art ? (
           <Image
-            source={{ uri: thumbnail }}
+            source={{ uri: album_art }}
             style={{
-              width: 56,
-              height: 56,
-              borderRadius: 12,
+              width: 64,
+              height: 64,
+              borderRadius: 8,
               marginRight: 12,
+              aspectRatio: 1,
             }}
             resizeMode="cover"
           />
@@ -97,15 +100,16 @@ export default function SongItem({
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{
-              width: 56,
-              height: 56,
-              borderRadius: 12,
+              width: 64,
+              height: 64,
+              borderRadius: 8,
+              aspectRatio: 1,
               alignItems: 'center',
               justifyContent: 'center',
               marginRight: 12,
             }}
           >
-            <Music size={24} color="#60A5FA" />
+            <Music size={28} color="#60A5FA" />
           </LinearGradient>
         )}
 
@@ -120,7 +124,7 @@ export default function SongItem({
             }}
             numberOfLines={1}
           >
-            {title}
+            {track_name}
           </Text>
           <Text 
             style={{ 
@@ -129,8 +133,21 @@ export default function SongItem({
             }}
             numberOfLines={1}
           >
-            {artist}
+            {artist_name}
           </Text>
+          {album_name && (
+            <Text 
+              style={{ 
+                fontSize: 11,
+                color: textSecondary,
+                marginTop: 2,
+                opacity: 0.7,
+              }}
+              numberOfLines={1}
+            >
+              {album_name}
+            </Text>
+          )}
         </View>
 
         {/* Duration and Play Icon */}
@@ -150,4 +167,5 @@ export default function SongItem({
     </ScalePressable>
   );
 }
+
 

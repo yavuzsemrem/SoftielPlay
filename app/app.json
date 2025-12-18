@@ -3,6 +3,7 @@
     "name": "app",
     "slug": "app",
     "version": "1.0.0",
+    "main": "expo-router/entry",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "app",
@@ -36,7 +37,7 @@
       "typedRoutes": true
     },
     "extra": {
-      "apiUrl": "http://localhost:3000"
+      "apiUrl": "https://softielplay-server-production.up.railway.app"
     }
   }
 }

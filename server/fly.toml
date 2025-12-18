@@ -20,3 +20,4 @@ primary_region = "iad"  # Washington DC - değiştirebilirsiniz
   cpu_kind = "shared"
   cpus = 1
   memory_mb = 256
+

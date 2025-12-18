@@ -164,3 +164,4 @@ Deploy başarılı olduktan sonra:
 1. Railway dashboard'da "Logs" sekmesini kontrol edin
 2. Hata mesajını tam olarak okuyun
 3. Railway support'a başvurun: https://railway.app/help
+

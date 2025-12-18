@@ -69,6 +69,9 @@ export default function SearchScreen() {
 
   // useSearch hook'unu kullan
   const { results, isLoading, isError, error } = useSearch(searchQuery);
+  
+  // Navigation bar yüksekliği: 60 (tab bar) + insets.bottom + padding
+  const tabBarHeight = 60 + insets.bottom + Math.max(insets.bottom, 6);
 
   // Debug: Sonuçları konsola yazdır
   console.log('🎵 SearchScreen - results:', results);
@@ -77,79 +80,88 @@ export default function SearchScreen() {
   console.log('🎵 SearchScreen - error:', error);
 
   return (
-    <SafeAreaView className="flex-1" edges={['top']}>
+    <View 
+      style={{ 
+        flex: 1, 
+        backgroundColor: isDark ? '#000000' : '#FFFFFF' 
+      }}
+    >
       {/* Sticky Header with Search Bar */}
-      <View 
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 100,
-          paddingTop: insets.top + 8,
-          paddingBottom: 12,
-          paddingHorizontal: 20,
-          backgroundColor: isDark ? '#000000' : '#FFFFFF',
-          borderBottomWidth: 1,
-          borderBottomColor: isDark ? '#1A1A1A' : '#E5E5E5',
-        }}
-      >
-        <View style={{ position: 'relative' }}>
-          <View 
-            style={{
-              position: 'absolute',
-              left: 16,
-              top: 0,
-              bottom: 0,
-              justifyContent: 'center',
-              zIndex: 10,
-            }}
-            pointerEvents="none"
-          >
-            <SearchIcon size={20} color={textSecondary} />
-          </View>
-          <TextInput
-            style={{ 
-              width: '100%',
-              paddingLeft: 48,
-              paddingRight: searchQuery.length > 0 ? 48 : 16,
-              paddingVertical: 14,
-              borderRadius: 16,
-              fontSize: 16,
-              backgroundColor: isDark ? '#1A1A1A' : '#F5F5F5',
-              color: textPrimary,
-              borderWidth: 1,
-              borderColor: isDark ? '#2A2A2A' : '#E5E5E5',
-            }}
-            placeholder="Şarkı, sanatçı veya çalma listesi ara..."
-            placeholderTextColor={textSecondary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCapitalize="none"
-          />
-          {searchQuery.length > 0 && (
-            <ScalePressable
+      <SafeAreaView edges={['top']} style={{ backgroundColor: isDark ? '#000000' : '#FFFFFF' }}>
+        <View 
+          style={{
+            paddingTop: 8,
+            paddingBottom: 8,
+            paddingHorizontal: 20,
+            backgroundColor: isDark ? '#000000' : '#FFFFFF',
+            borderBottomWidth: 1,
+            borderBottomColor: isDark ? '#1A1A1A' : '#E5E5E5',
+          }}
+        >
+          <View style={{ position: 'relative' }}>
+            <View 
               style={{
                 position: 'absolute',
-                right: 16,
+                left: 16,
                 top: 0,
                 bottom: 0,
                 justifyContent: 'center',
                 zIndex: 10,
-                padding: 4,
               }}
-              onPress={() => setSearchQuery('')}
+              pointerEvents="none"
             >
-              <X size={18} color={textSecondary} />
-            </ScalePressable>
-          )}
+              <SearchIcon size={20} color={textSecondary} />
+            </View>
+            <TextInput
+              style={{ 
+                width: '100%',
+                paddingLeft: 48,
+                paddingRight: searchQuery.length > 0 ? 48 : 16,
+                paddingVertical: 14,
+                borderRadius: 16,
+                fontSize: 16,
+                backgroundColor: isDark ? '#1A1A1A' : '#F5F5F5',
+                color: textPrimary,
+                borderWidth: 1,
+                borderColor: isDark ? '#2A2A2A' : '#E5E5E5',
+              }}
+              placeholder="Şarkı, sanatçı veya çalma listesi ara..."
+              placeholderTextColor={textSecondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCapitalize="none"
+            />
+            {searchQuery.length > 0 && (
+              <ScalePressable
+                style={{
+                  position: 'absolute',
+                  right: 16,
+                  top: 0,
+                  bottom: 0,
+                  justifyContent: 'center',
+                  zIndex: 10,
+                  padding: 4,
+                }}
+                onPress={() => setSearchQuery('')}
+              >
+                <X size={18} color={textSecondary} />
+              </ScalePressable>
+            )}
+          </View>
         </View>
-      </View>
+      </SafeAreaView>
 
       {searchQuery.length > 0 ? (
-        <View style={{ flex: 1, paddingTop: insets.top + 35 }}>
+        <>
           {isLoading ? (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100 }}>
+            <View 
+              style={{ 
+                flex: 1, 
+                justifyContent: 'center', 
+                alignItems: 'center',
+                backgroundColor: isDark ? '#000000' : '#FFFFFF',
+              }}
+            >
               <ActivityIndicator size="large" color="#60A5FA" />
               <Text 
                 style={{ 
@@ -163,7 +175,15 @@ export default function SearchScreen() {
               </Text>
             </View>
           ) : isError ? (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100, paddingHorizontal: 20 }}>
+            <View 
+              style={{ 
+                flex: 1, 
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                paddingHorizontal: 20,
+                backgroundColor: isDark ? '#000000' : '#FFFFFF',
+              }}
+            >
               <Text 
                 style={{ 
                   fontSize: 16,
@@ -189,48 +209,64 @@ export default function SearchScreen() {
               )}
             </View>
           ) : results.length > 0 ? (
-            <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 8 }}>
-              <Text 
-                style={{ 
-                  fontSize: 20,
-                  fontWeight: '700',
-                  marginBottom: 16,
-                  marginTop: 8,
-                  color: textPrimary,
-                }}
-              >
-                Arama Sonuçları ({results.length})
-              </Text>
-              <FlatList
+            <FlatList
+              style={{ 
+                flex: 1,
+                backgroundColor: isDark ? '#000000' : '#FFFFFF',
+              }}
+              contentContainerStyle={{ 
+                paddingHorizontal: 20,
+                paddingTop: 16,
+                paddingBottom: tabBarHeight + 16,
+              }}
                 data={results}
-                keyExtractor={(item) => item.videoId || `item-${item.title}`}
-                renderItem={({ item }) => {
-                  console.log('🎬 Rendering item:', item);
+                keyExtractor={(item, index) => item.spotify_id || `item-${index}`}
+              ListHeaderComponent={
+                <Text 
+                  style={{ 
+                    fontSize: 20,
+                    fontWeight: '700',
+                    marginBottom: 16,
+                    color: textPrimary,
+                  }}
+                >
+                  Arama Sonuçları ({results.length})
+                </Text>
+              }
+                renderItem={({ item, index }) => {
+                  console.log(`🎬 Rendering item ${index}:`, item.track_name);
                   return (
                     <SongItem
-                      videoId={item.videoId}
-                      title={item.title}
-                      artist={item.artist}
-                      thumbnail={item.thumbnail}
+                      spotify_id={item.spotify_id}
+                      track_name={item.track_name}
+                      artist_name={item.artist_name}
+                      album_art={item.album_art}
+                      album_name={item.album_name}
                       duration={item.duration}
                       onPress={() => {
-                        // TODO: Şarkı çalma işlevi eklenecek
+                        // TODO: Şarkı çalma işlevi eklenecek - /api/match-youtube/:spotifyId endpoint'i kullanılacak
                         console.log('Şarkı seçildi:', item);
                       }}
                     />
                   );
                 }}
-                contentContainerStyle={{ paddingBottom: 100 }}
-                showsVerticalScrollIndicator={false}
-                ListEmptyComponent={
-                  <View style={{ padding: 20, alignItems: 'center' }}>
-                    <Text style={{ color: textSecondary }}>Sonuç yükleniyor...</Text>
-                  </View>
-                }
-              />
-            </View>
+              showsVerticalScrollIndicator={true}
+              ListEmptyComponent={
+                <View style={{ padding: 20, alignItems: 'center' }}>
+                  <Text style={{ color: textSecondary }}>Sonuç yükleniyor...</Text>
+                </View>
+              }
+            />
           ) : (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100, paddingHorizontal: 20 }}>
+            <View 
+              style={{ 
+                flex: 1, 
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                paddingHorizontal: 20,
+                backgroundColor: isDark ? '#000000' : '#FFFFFF',
+              }}
+            >
               <Text 
                 style={{ 
                   fontSize: 16,
@@ -243,12 +279,12 @@ export default function SearchScreen() {
               </Text>
             </View>
           )}
-        </View>
+        </>
       ) : (
         <ScrollView 
-          className="flex-1"
+          style={{ flex: 1 }}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingTop: insets.top + 35, paddingBottom: 100, paddingHorizontal: 20 }}
+          contentContainerStyle={{ paddingBottom: tabBarHeight + 20, paddingHorizontal: 20, paddingTop: 16 }}
         >
           {/* Recent Searches */}
             {recentSearches.length > 0 && (
@@ -380,6 +416,6 @@ export default function SearchScreen() {
             </View>
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }

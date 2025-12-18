@@ -114,3 +114,4 @@ Bu durumda Supabase projenizin admin yetkilerine sahip olduğunuzdan emin olun. 
 - `SECURITY DEFINER` kullanılması, fonksiyonun `auth.users` tablosuna erişebilmesi için gereklidir
 - `ON CONFLICT DO NOTHING` kullanılması, çift kayıt oluşmasını önler
 
+

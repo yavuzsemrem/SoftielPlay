@@ -50,8 +50,9 @@ if (API_BASE_URL) {
 }
 
 /**
- * YouTube arama hook'u
+ * Spotify arama hook'u
  * Debounce ile 500ms sonra arama yapar
+ * Spotify'dan metadata alır (track_name, artist_name, album_art, spotify_id)
  */
 export function useSearch(query) {
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -118,4 +119,5 @@ export function useSearch(query) {
     refetch,
   };
 }
+
 
