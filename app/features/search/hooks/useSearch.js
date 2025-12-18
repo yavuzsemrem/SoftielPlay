@@ -133,7 +133,9 @@ export function useSearch(query) {
       });
       
       if (spotifyResults.length === 0 && (response.data.results || []).length > 0) {
-        console.error('❌ API Spotify formatında veri döndürmedi! Backend kontrol edilmeli.');
+        const youtubeCount = (response.data.results || []).filter(item => item.title && item.artist && item.videoId).length;
+        console.error(`❌ API Spotify formatında veri döndürmedi! ${youtubeCount} YouTube sonucu filtrelendi. Backend production'a deploy edilmeli.`);
+        console.error('⚠️ Backend güncel kod ile deploy edilmeli. Mevcut backend eski YouTube kodunu çalıştırıyor.');
       }
       
       return {
