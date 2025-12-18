@@ -93,7 +93,50 @@ export function useSearch(query) {
       });
 
       console.log('✅ Arama sonucu:', response.data);
-      return response.data;
+      
+      // API'den gelen verileri normalize et
+      // Hem Spotify formatını (track_name, artist_name, album_art, spotify_id) 
+      // hem de YouTube formatını (title, artist, thumbnail, videoId) destekle
+      const normalizedResults = (response.data.results || []).map((item) => {
+        // Eğer Spotify formatında geliyorsa (track_name varsa), olduğu gibi döndür
+        if (item.track_name && item.artist_name) {
+          return {
+            spotify_id: item.spotify_id || null,
+            track_name: item.track_name,
+            artist_name: item.artist_name,
+            album_art: item.album_art || null,
+            album_name: item.album_name || null,
+            duration: item.duration || '0:00',
+            duration_ms: item.duration_ms || null,
+            preview_url: item.preview_url || null,
+          };
+        }
+        
+        // Eğer YouTube formatında geliyorsa (title, artist varsa), Spotify formatına çevir
+        // NOT: Bu geçici bir çözüm. Backend Spotify formatında döndürmeli.
+        if (item.title && item.artist) {
+          console.warn('⚠️ API YouTube formatında veri döndürüyor. Backend güncellenmeli.');
+          return {
+            spotify_id: item.videoId || null, // Geçici olarak videoId kullan
+            track_name: item.title,
+            artist_name: item.artist,
+            album_art: item.thumbnail || null,
+            album_name: null,
+            duration: item.duration || '0:00',
+            duration_ms: null,
+            preview_url: null,
+          };
+        }
+        
+        // Bilinmeyen format, olduğu gibi döndür
+        return item;
+      });
+      
+      return {
+        ...response.data,
+        results: normalizedResults,
+        count: normalizedResults.length,
+      };
     },
     enabled: Boolean(debouncedQuery && debouncedQuery.trim().length > 0), // Sadece query varsa çalıştır
     staleTime: 5 * 60 * 1000, // 5 dakika cache
