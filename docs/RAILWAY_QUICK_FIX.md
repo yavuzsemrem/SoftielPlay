@@ -43,10 +43,20 @@
 
 Deploy loglarında şunu görmelisiniz:
 ```
+setup │ nodejs-20_x, python, ffmpeg
+```
+veya
+```
 setup │ nodejs-20_x, python311, ffmpeg
 ```
 
 Eğer hala `nodejs_18` görüyorsanız:
 - `NIXPACKS_NODE_VERSION=20` environment variable'ının eklendiğinden emin olun
 - Railway dashboard'da "Variables" sekmesini kontrol edin
+- Deploy'u yeniden başlatın
+
+## Python Çakışma Hatası
+
+Eğer "conflict for python3.1.gz" hatası alırsanız:
+- `nixpacks.toml` dosyası güncellendi (Python artık otomatik tespit ediliyor)
 - Deploy'u yeniden başlatın

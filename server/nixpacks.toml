@@ -1,11 +1,12 @@
 # Nixpacks configuration for Railway
 # Node.js versiyonu NIXPACKS_NODE_VERSION environment variable ile belirlenir
-# Python ve FFmpeg burada belirtiliyor
+# Python Nixpacks tarafından otomatik tespit edilir
 
 providers = ["node", "python"]
 
 [phases.setup]
-nixPkgs = ["pkgs.python311", "pkgs.ffmpeg"]
+# Sadece FFmpeg ekliyoruz, Python ve Node.js Nixpacks tarafından otomatik kurulacak
+nixPkgs = ["pkgs.ffmpeg"]
 
 [phases.install]
 cmds = [
