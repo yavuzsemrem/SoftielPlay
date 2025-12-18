@@ -53,3 +53,4 @@ WHERE trigger_name = 'on_auth_user_created';
 -- action_statement: EXECUTE FUNCTION public.handle_new_user()
 
 
+

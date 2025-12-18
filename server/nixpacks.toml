@@ -10,11 +10,10 @@ nixPkgs = ["pkgs.nodejs_20", "pkgs.python3Full", "pkgs.ffmpeg"]
 
 [phases.install]
 cmds = [
-  "export PATH=/app/venv/bin:$PATH",
-  "npm ci --omit=dev",
   "python3 -m venv /app/venv",
   "/app/venv/bin/pip install yt-dlp",
-  "export PATH=/app/venv/bin:$PATH"
+  "export PATH=/app/venv/bin:$PATH",
+  "npm ci --omit=dev"
 ]
 
 [phases.build]
@@ -22,5 +21,6 @@ cmds = []
 
 [start]
 cmd = "export PATH=/app/venv/bin:$PATH && npm start"
+
 
 

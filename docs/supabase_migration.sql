@@ -259,3 +259,4 @@ CREATE TRIGGER on_auth_user_created
 -- 4. Yeni kullanıcı kayıtlarında otomatik profil oluşturulacak
 
 
+

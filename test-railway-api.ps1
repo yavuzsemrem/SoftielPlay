@@ -67,3 +67,4 @@ Write-Host "📝 Frontend için Environment Variable:" -ForegroundColor Yellow
 Write-Host "   EXPO_PUBLIC_API_URL=https://$RAILWAY_URL" -ForegroundColor Cyan
 
 
+

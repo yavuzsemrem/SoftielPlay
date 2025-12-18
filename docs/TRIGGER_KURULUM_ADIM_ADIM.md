@@ -151,3 +151,4 @@ WHERE tgname = 'on_auth_user_created';
 **Tek Çözüm:** SQL Editor kullan! 🚀
 
 
+

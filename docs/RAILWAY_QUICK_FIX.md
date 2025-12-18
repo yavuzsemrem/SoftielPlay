@@ -61,3 +61,4 @@ Eğer "conflict for python3.1.gz" hatası alırsanız:
 - `nixpacks.toml` dosyası güncellendi (Python artık otomatik tespit ediliyor)
 - Deploy'u yeniden başlatın
 
+

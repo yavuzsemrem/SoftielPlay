@@ -115,3 +115,4 @@ Bu durumda Supabase projenizin admin yetkilerine sahip olduğunuzdan emin olun. 
 - `ON CONFLICT DO NOTHING` kullanılması, çift kayıt oluşmasını önler
 
 
+

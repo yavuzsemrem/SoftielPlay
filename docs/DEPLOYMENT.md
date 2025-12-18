@@ -285,3 +285,4 @@ Production build'de environment variable kullanın:
 - `app.json` değişikliklerinden sonra uygulamayı yeniden build edin
 
 
+
