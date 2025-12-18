@@ -1,12 +1,11 @@
 # Nixpacks configuration for Railway
-# Node.js versiyonu NIXPACKS_NODE_VERSION environment variable ile belirlenir
-# Python nixPkgs ile kurulacak (provider çakışma yaratıyor)
+# Tüm paketler nixPkgs ile kuruluyor - çakışmayı önlemek için providers kullanmıyoruz
 
-providers = ["node"]
+providers = []
 
 [phases.setup]
-# Python ve pip nixPkgs ile kuruluyor
-nixPkgs = ["pkgs.python3", "pkgs.python3Packages.pip"]
+# Node.js 20, Python, pip ve FFmpeg nixPkgs ile kuruluyor
+nixPkgs = ["pkgs.nodejs_20", "pkgs.python3", "pkgs.python3Packages.pip", "pkgs.ffmpeg"]
 
 [phases.install]
 cmds = [
