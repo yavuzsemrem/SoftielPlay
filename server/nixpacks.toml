@@ -4,13 +4,14 @@
 providers = []
 
 [phases.setup]
-# Node.js 20, Python (full with pip) ve FFmpeg nixPkgs ile kuruluyor
-nixPkgs = ["pkgs.nodejs_20", "pkgs.python3Full", "pkgs.ffmpeg"]
+# Node.js 20, Python, pip, curl ve FFmpeg nixPkgs ile kuruluyor
+nixPkgs = ["pkgs.nodejs_20", "pkgs.python3", "pkgs.python3Packages.pip", "pkgs.curl", "pkgs.ffmpeg"]
 
 [phases.install]
 cmds = [
   "npm ci --omit=dev",
-  "python3 -m pip install --user yt-dlp"
+  "curl -sSL https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py && python3 /tmp/get-pip.py --user",
+  "$HOME/.local/bin/pip install --user yt-dlp"
 ]
 
 [phases.build]
