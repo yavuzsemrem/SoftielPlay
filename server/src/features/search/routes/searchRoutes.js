@@ -45,9 +45,33 @@ router.get('/search', async (req, res) => {
       });
     }
 
+    // Spotify credentials kontrolü
+    if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET) {
+      console.error('❌ Spotify credentials eksik! SPOTIFY_CLIENT_ID ve SPOTIFY_CLIENT_SECRET environment variable\'ları ayarlanmalı.');
+      return res.status(500).json({
+        success: false,
+        error: 'Spotify credentials eksik',
+        message: 'SPOTIFY_CLIENT_ID ve SPOTIFY_CLIENT_SECRET environment variable\'ları ayarlanmalı',
+        results: [],
+        count: 0
+      });
+    }
+
     // Sadece Spotify'da arama yap - YouTube kullanma
     console.log('🔍 Spotify arama yapılıyor:', q.trim());
-    const tracks = await spotifyService.searchTracks(q.trim(), 15);
+    let tracks;
+    try {
+      tracks = await spotifyService.searchTracks(q.trim(), 15);
+    } catch (error) {
+      console.error('❌ Spotify arama hatası:', error.message);
+      return res.status(500).json({
+        success: false,
+        error: 'Spotify arama hatası',
+        message: error.message,
+        results: [],
+        count: 0
+      });
+    }
 
     if (!tracks || tracks.length === 0) {
       console.log('⚠️ Spotify arama sonucu bulunamadı');
