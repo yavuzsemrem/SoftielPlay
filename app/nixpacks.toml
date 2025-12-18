@@ -5,22 +5,22 @@ providers = []
 
 [phases.setup]
 # Node.js 20 kullanıyoruz (Expo ve React Native için uyumlu)
-# Railway'de NIXPACKS_NODE_VERSION=20 environment variable'ı da ayarlanmalı
+# KRİTİK: Railway'de NIXPACKS_NODE_VERSION=20 environment variable'ı ZORUNLU!
+# Bu olmadan Node.js 22 kullanılır ve engine hatası alırsınız
 nixPkgs = ["pkgs.nodejs_20"]
 
 [phases.install]
-# Sadece app dizinindeki bağımlılıkları kur
-# ÖNEMLİ: Railway'de Root Directory = "app" olarak ayarlanmalı
-# Eğer root directory ayarlanmamışsa, app dizinine geçip kurulum yap
-# Bu sayede root'taki workspaces nedeniyle server bağımlılıkları kurulmaz
+# KRİTİK: Root'tan build yapılıyorsa, root'taki package-lock.json workspaces içeriyor
+# Bu yüzden app dizinine geçip sadece app'in bağımlılıklarını kurmalıyız
+# App dizininde npm install kullanarak kendi lock file'ını oluşturmasına izin veriyoruz
+# Bu sayede root'taki workspaces ve server bağımlılıkları ignore edilir
 cmds = [
-  "if [ -f app/package.json ]; then cd app && npm ci --omit=dev; else npm ci --omit=dev; fi"
+  "cd app && npm install --omit=dev"
 ]
 
 [phases.build]
 cmds = []
 
 [start]
-# Root directory app olarak ayarlandığında direkt npm start çalışır
-# Eğer root directory ayarlanmamışsa, app dizinine geçip başlat
-cmd = "if [ -f app/package.json ]; then cd app && npm start; else npm start; fi"
+# App dizininden başlat
+cmd = "cd app && npm start"
