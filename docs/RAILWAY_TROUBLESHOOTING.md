@@ -56,14 +56,21 @@ Bu hata genellikle şu sebeplerden kaynaklanır:
 2. Manuel olarak `PORT=3000` eklemeyin (Railway otomatik yapar)
 3. Sadece `SKIP_SYSTEM_CHECK=true` ekleyin
 
-## Node.js Versiyon Hatası
+## Node.js Versiyon Hatası (KRİTİK!)
 
 **Sorun:** Railway Node.js 18 kullanıyor ama paketler Node.js 20+ gerektiriyor.
 
-**Çözüm:**
-1. `server/.nvmrc` dosyası oluşturuldu (içinde `20` yazıyor)
-2. `server/package.json`'da `engines` field'ı eklendi
-3. Railway otomatik olarak Node.js 20 kullanacak
+**Çözüm (3 ADIM ZORUNLU):**
+1. **Environment Variable Ekle (EN ÖNEMLİSİ!):**
+   - Railway dashboard → "Variables" sekmesi
+   - `NIXPACKS_NODE_VERSION=20` ekleyin
+   - **Bu olmadan Node.js 18 kullanılır!**
+
+2. `server/.nvmrc` dosyası mevcut (içinde `20` yazıyor)
+
+3. `server/package.json`'da `engines` field'ı mevcut (`"node": "20.x"`)
+
+**Not:** `NIXPACKS_NODE_VERSION` environment variable'ı olmadan diğer yöntemler çalışmayabilir!
 
 ## Python Bulunamıyor Hatası
 
@@ -81,18 +88,22 @@ Bu hata genellikle şu sebeplerden kaynaklanır:
    Settings → Root Directory = "server"
    ```
 
-2. **Environment Variables:**
+2. **Environment Variables (ZORUNLU!):**
    ```
+   NIXPACKS_NODE_VERSION=20
    SKIP_SYSTEM_CHECK=true
    ```
+   **⚠️ `NIXPACKS_NODE_VERSION=20` olmadan Node.js 18 kullanılır!**
 
 3. **Node.js Versiyonu:**
-   - `server/.nvmrc` dosyası mevcut olmalı (içinde `20`)
-   - Railway otomatik olarak Node.js 20 kullanacak
+   - `server/.nvmrc` dosyası mevcut (içinde `20`)
+   - `server/package.json`'da `engines.node: "20.x"` mevcut
+   - **AMA `NIXPACKS_NODE_VERSION=20` environment variable'ı zorunlu!**
 
 4. **Python Kurulumu:**
-   - `server/nixpacks.toml` dosyası mevcut olmalı
+   - `server/nixpacks.toml` dosyası mevcut
    - Railway otomatik olarak Python ve yt-dlp kuracak
+   - Python setup phase'de kurulacak, install phase'de yt-dlp yüklenecek
 
 3. **Deploy Loglarını Kontrol:**
    - Railway dashboard'da "Deployments" sekmesine gidin

@@ -39,15 +39,17 @@ Production ortamında backend'i cloud servise deploy etmeniz gerekiyor. Aşağı
    - "Save" butonuna tıklayın
    - **Bu adım olmadan deployment başarısız olur!**
 
-4. **Environment Variables:**
+4. **Environment Variables (ÇOK ÖNEMLİ!):**
    - Railway dashboard'da "Variables" sekmesine gidin
-   - Şu environment variable'ı ekleyin:
+   - Şu environment variable'ları ekleyin:
      ```
+     NIXPACKS_NODE_VERSION=20
      SKIP_SYSTEM_CHECK=true
      ```
    **Notlar:**
+   - `NIXPACKS_NODE_VERSION=20` zorunlu! Bu olmadan Node.js 18 kullanılır
    - `PORT` variable'ını eklemeyin, Railway otomatik atar
-   - `SKIP_SYSTEM_CHECK=true` olmalı çünkü Railway'da Python ve yt-dlp kurulu değil
+   - `SKIP_SYSTEM_CHECK=true` olmalı çünkü Railway'da sistem kontrolü gerekmez
 
 5. **Deploy:**
    - Railway otomatik olarak deploy edecek
@@ -55,7 +57,11 @@ Production ortamında backend'i cloud servise deploy etmeniz gerekiyor. Aşağı
    - Deploy tamamlandıktan sonra "Settings" → "Generate Domain" ile URL oluşturun
    - URL'i kopyalayın (örn: `https://your-app.railway.app`)
 
-**⚠️ Sorun Giderme:** Eğer "There was an error deploying from source" hatası alırsanız, `docs/RAILWAY_TROUBLESHOOTING.md` dosyasına bakın.
+**⚠️ KRİTİK:** `NIXPACKS_NODE_VERSION=20` environment variable'ını eklemeden deploy etmeyin! Bu olmadan Node.js 18 kullanılır ve hata alırsınız.
+
+**⚠️ Sorun Giderme:** 
+- Hızlı çözüm için: `docs/RAILWAY_QUICK_FIX.md`
+- Detaylı sorun giderme için: `docs/RAILWAY_TROUBLESHOOTING.md`
 
 ### Seçenek 2: Fly.io (Ücretsiz - Daha Fazla Kaynak)
 
