@@ -13,6 +13,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSearch } from '@/features/search/hooks/useSearch';
+import { useVideoIdPrefetch } from '@/features/search/hooks/useVideoIdPrefetch';
+import { useStreamUrlPrefetch } from '@/features/search/hooks/useStreamUrlPrefetch';
 import SongItem from '@/features/search/components/SongItem';
 import usePlayerStore from '@/features/player/store/usePlayerStore';
 
@@ -70,6 +72,10 @@ export default function SearchScreen() {
 
   // useSearch hook'unu kullan
   const { results, isLoading, isError, error } = useSearch(searchQuery);
+  
+  // Prefetch: İlk 2-3 sonuç için videoId ve stream URL'lerini arka planda cache'le
+  useVideoIdPrefetch(results);
+  useStreamUrlPrefetch(results);
   
   // Player store'dan playTrack fonksiyonunu al
   const playTrack = usePlayerStore((state) => state.playTrack);

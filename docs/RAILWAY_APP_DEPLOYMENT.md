@@ -86,3 +86,6 @@ Eğer hala `yt-dlp-exec` hatası alıyorsanız:
 - Root Directory'nin `app` olarak ayarlandığından emin olun
 - Railway dashboard'da "Settings" sekmesini kontrol edin
 - Deploy'u yeniden başlatın
+
+
+

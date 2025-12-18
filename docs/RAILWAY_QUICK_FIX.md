@@ -62,3 +62,6 @@ Eğer "conflict for python3.1.gz" hatası alırsanız:
 - Deploy'u yeniden başlatın
 
 
+
+
+

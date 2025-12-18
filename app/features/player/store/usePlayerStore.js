@@ -43,9 +43,16 @@ const usePlayerStore = create((set, get) => ({
   duration: 0, // milisaniye cinsinden toplam süre
   isLoading: false,
   error: null,
+  
+  // Cache'ler (prefetch için)
+  videoIdCache: {}, // spotify_id -> videoId mapping
+  streamUrlCache: {}, // videoId -> { url, timestamp } mapping
+  prefetchPromises: {}, // spotify_id -> Promise mapping (devam eden prefetch'leri takip et)
 
   // Şarkı çalma fonksiyonu
   playTrack: async (track) => {
+    const totalStartTime = Date.now(); // Toplam başlangıç zamanı
+    
     try {
       const { sound: currentSound, stopTrack } = get();
 
@@ -55,11 +62,12 @@ const usePlayerStore = create((set, get) => ({
         return;
       }
 
-      // Önceki şarkıyı durdur
+      // Önceki şarkıyı durdur (paralel olarak yapılabilir ama güvenlik için await ediyoruz)
       if (currentSound) {
         await stopTrack();
       }
 
+      // Optimistic UI: Hemen UI'ı güncelle (kullanıcı tıklamayı görsün)
       set({ 
         isLoading: true, 
         error: null,
@@ -71,30 +79,116 @@ const usePlayerStore = create((set, get) => ({
 
       // Eğer videoId yoksa, Spotify ID'den videoId al
       let videoId = track.videoId;
+      let videoIdTime = 0;
+      let videoIdFromCache = false;
       
-      if (!videoId && track.spotify_id) {
-        console.log('🔍 YouTube video ID alınıyor:', track.spotify_id);
-        
-        if (!API_BASE_URL) {
-          throw new Error('API URL yapılandırılmamış');
-        }
+      // Cache kontrolü (çok hızlı, önce bunu yap)
+      const currentCache = get().videoIdCache;
+      const prefetchPromises = get().prefetchPromises || {};
+      
+      if (!videoId && track.spotify_id && currentCache[track.spotify_id]) {
+        videoId = currentCache[track.spotify_id];
+        videoIdFromCache = true;
+        console.log(`⚡ VideoId cache'den alındı (0ms):`, videoId);
+      } else if (!videoId && track.spotify_id) {
+        // Prefetch devam ediyor mu kontrol et
+        const prefetchPromise = prefetchPromises[track.spotify_id];
+        if (prefetchPromise) {
+          console.log('⏳ Prefetch devam ediyor, bekleniyor...');
+          const videoIdStartTime = Date.now();
+          try {
+            // Prefetch'in tamamlanmasını bekle (max 5 saniye - API yavaş olduğu için)
+            // Eğer prefetch 5 saniye içinde tamamlanmazsa, normal API çağrısı yap
+            const prefetchResult = await Promise.race([
+              prefetchPromise,
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Prefetch timeout')), 5000))
+            ]);
+            
+            // Prefetch tamamlandı, cache'den kontrol et
+            const updatedCache = get().videoIdCache;
+            if (updatedCache[track.spotify_id]) {
+              videoId = updatedCache[track.spotify_id];
+              videoIdFromCache = true;
+              videoIdTime = Date.now() - videoIdStartTime;
+              console.log(`⚡ VideoId prefetch'ten alındı (${videoIdTime}ms):`, videoId);
+            } else {
+              throw new Error('Prefetch tamamlandı ama videoId bulunamadı');
+            }
+          } catch (error) {
+            // Prefetch timeout oldu veya başarısız, normal API çağrısı yap
+            console.log('⚠️ Prefetch timeout/hatası, normal API çağrısı yapılıyor');
+            const videoIdStartTime = Date.now();
+            
+            if (!API_BASE_URL) {
+              throw new Error('API URL yapılandırılmamış');
+            }
 
-        try {
-          const response = await axios.get(`${API_BASE_URL}/api/match-youtube/${track.spotify_id}`, {
-            timeout: 30000,
-          });
-          
-          videoId = response.data.youtube_match?.videoId;
-          
-          if (!videoId) {
-            throw new Error('YouTube video bulunamadı');
+            const response = await axios.get(`${API_BASE_URL}/api/match-youtube/${track.spotify_id}`, {
+              timeout: 30000,
+            });
+            
+            videoId = response.data.youtube_match?.videoId;
+            videoIdTime = Date.now() - videoIdStartTime;
+            
+            if (!videoId) {
+              throw new Error('YouTube video bulunamadı');
+            }
+            
+            // Cache'e kaydet
+            set((state) => ({
+              videoIdCache: {
+                ...state.videoIdCache,
+                [track.spotify_id]: videoId,
+              },
+            }));
+            
+            console.log(`✅ YouTube video ID alındı (${videoIdTime}ms):`, videoId);
+          } finally {
+            // Prefetch promise'ini temizle
+            set((state) => {
+              const newPrefetchPromises = { ...state.prefetchPromises };
+              delete newPrefetchPromises[track.spotify_id];
+              return { prefetchPromises: newPrefetchPromises };
+            });
           }
+        } else {
+          // Prefetch yok, normal API çağrısı yap
+          const videoIdStartTime = Date.now();
+          console.log('🔍 YouTube video ID alınıyor:', track.spotify_id);
           
-          console.log('✅ YouTube video ID alındı:', videoId);
-        } catch (error) {
-          console.error('❌ YouTube video ID alma hatası:', error);
-          throw new Error(error.response?.data?.message || 'YouTube video bulunamadı');
+          if (!API_BASE_URL) {
+            throw new Error('API URL yapılandırılmamış');
+          }
+
+          try {
+            const response = await axios.get(`${API_BASE_URL}/api/match-youtube/${track.spotify_id}`, {
+              timeout: 30000,
+            });
+            
+            videoId = response.data.youtube_match?.videoId;
+            videoIdTime = Date.now() - videoIdStartTime;
+            
+            if (!videoId) {
+              throw new Error('YouTube video bulunamadı');
+            }
+            
+            // Cache'e kaydet
+            set((state) => ({
+              videoIdCache: {
+                ...state.videoIdCache,
+                [track.spotify_id]: videoId,
+              },
+            }));
+            
+            console.log(`✅ YouTube video ID alındı (${videoIdTime}ms):`, videoId);
+          } catch (error) {
+            console.error('❌ YouTube video ID alma hatası:', error);
+            throw new Error(error.response?.data?.message || 'YouTube video bulunamadı');
+          }
         }
+      } else if (videoId) {
+        videoIdFromCache = true; // Zaten track'te var
+        console.log('✅ VideoId track\'te mevcut:', videoId);
       }
 
       if (!videoId) {
@@ -102,23 +196,73 @@ const usePlayerStore = create((set, get) => ({
       }
 
       // Backend'den stream URL al
-      console.log('🎵 Stream URL alınıyor:', videoId);
-      const { streamUrl } = await getStreamUrl(videoId);
-      console.log('✅ Stream URL alındı:', streamUrl.substring(0, 50) + '...');
+      const streamUrlStartTime = Date.now();
+      
+      // Önce cache'den kontrol et (çok hızlı)
+      const currentStreamCache = get().streamUrlCache;
+      let streamUrl;
+      let streamUrlTime = 0;
+      let streamUrlFromCache = false;
+      
+      if (currentStreamCache[videoId] && currentStreamCache[videoId].url) {
+        const cached = currentStreamCache[videoId];
+        const cacheAge = Date.now() - cached.timestamp;
+        // Cache 2 saatten eski değilse kullan (backend cache TTL ile uyumlu)
+        if (cacheAge < 2 * 60 * 60 * 1000) {
+          streamUrl = cached.url;
+          streamUrlTime = Date.now() - streamUrlStartTime;
+          streamUrlFromCache = true;
+          console.log(`⚡ Stream URL cache'den alındı (${streamUrlTime}ms, ${Math.round(cacheAge / 1000)}s önce cache'lendi)`);
+        }
+      }
+      
+      if (!streamUrl) {
+        console.log('🎵 Stream URL alınıyor:', videoId);
+        const { streamUrl: fetchedStreamUrl } = await getStreamUrl(videoId);
+        streamUrl = fetchedStreamUrl;
+        streamUrlTime = Date.now() - streamUrlStartTime;
+        
+        // Cache'e kaydet
+        set((state) => ({
+          streamUrlCache: {
+            ...(state.streamUrlCache || {}),
+            [videoId]: {
+              url: streamUrl,
+              timestamp: Date.now(),
+            },
+          },
+        }));
+        
+        console.log(`✅ Stream URL alındı (${streamUrlTime}ms):`, streamUrl.substring(0, 50) + '...');
+      }
 
       // Audio modunu ayarla
+      const audioModeStartTime = Date.now();
       await Audio.setAudioModeAsync({
         playsInSilentModeIOS: true,
         staysActiveInBackground: true,
         shouldDuckAndroid: true,
       });
+      const audioModeTime = Date.now() - audioModeStartTime;
 
-      // Yeni ses dosyasını yükle
+      // Yeni ses dosyasını yükle (progressive loading)
+      const audioLoadStartTime = Date.now();
+      
+      // Ses dosyasını yükle ve hemen çalmaya başla (optimize edilmiş ayarlar)
       const { sound: newSound } = await Audio.Sound.createAsync(
         { uri: streamUrl },
         { 
-          shouldPlay: true,
+          shouldPlay: true, // Hemen çalmaya başla
           isLooping: false,
+          progressUpdateIntervalMillis: 250, // Daha sık güncelleme
+          volume: 1.0,
+          rate: 1.0,
+          shouldCorrectPitch: true,
+          // iOS optimizasyonları
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: true,
+          // Android optimizasyonları
+          shouldDuckAndroid: true,
         },
         (status) => {
           // Status güncellemeleri
@@ -136,6 +280,7 @@ const usePlayerStore = create((set, get) => ({
           }
         }
       );
+      const audioLoadTime = Date.now() - audioLoadStartTime;
 
       set({ 
         sound: newSound,
@@ -143,7 +288,19 @@ const usePlayerStore = create((set, get) => ({
         isLoading: false,
       });
 
-      console.log('✅ Şarkı çalmaya başladı:', track.track_name);
+      const totalTime = Date.now() - totalStartTime;
+      
+      // Detaylı timing logları
+      console.log('═══════════════════════════════════════════════════════');
+      console.log(`⏱️  ŞARKI AÇILMA SÜRELERİ: ${track.track_name}`);
+      console.log('═══════════════════════════════════════════════════════');
+      console.log(`📹 VideoId alma:     ${videoIdTime}ms ${videoIdFromCache ? '(CACHE)' : '(API)'}`);
+      console.log(`🔗 Stream URL alma:  ${streamUrlTime}ms ${streamUrlFromCache ? '(CACHE)' : '(API)'}`);
+      console.log(`🎛️  Audio mode:       ${audioModeTime}ms`);
+      console.log(`🎵 Audio yükleme:    ${audioLoadTime}ms`);
+      console.log('───────────────────────────────────────────────────────');
+      console.log(`✅ TOPLAM SÜRE:      ${totalTime}ms (${(totalTime / 1000).toFixed(2)}s)`);
+      console.log('═══════════════════════════════════════════════════════');
 
     } catch (error) {
       console.error('❌ Şarkı çalma hatası:', error);
@@ -232,3 +389,6 @@ const usePlayerStore = create((set, get) => ({
 }));
 
 export default usePlayerStore;
+
+
+

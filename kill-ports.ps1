@@ -36,7 +36,35 @@ if ($nodeProcesses) {
     Write-Host "  Tüm Node process'leri kapatıldı" -ForegroundColor Green
 }
 
+# Metro bundler cache'ini temizle
+Write-Host "`nMetro bundler cache temizleniyor..." -ForegroundColor Yellow
+$appPath = Join-Path $PSScriptRoot "app"
+if (Test-Path $appPath) {
+    Push-Location $appPath
+    try {
+        # .expo ve node_modules/.cache klasörlerini temizle
+        $cachePaths = @(
+            ".expo",
+            "node_modules\.cache",
+            ".metro"
+        )
+        
+        foreach ($cachePath in $cachePaths) {
+            $fullPath = Join-Path $appPath $cachePath
+            if (Test-Path $fullPath) {
+                Remove-Item -Path $fullPath -Recurse -Force -ErrorAction SilentlyContinue
+                Write-Host "  $cachePath temizlendi" -ForegroundColor Green
+            }
+        }
+    } finally {
+        Pop-Location
+    }
+}
+
 Write-Host "`nTemizlik tamamlandı! Artık 'npm run dev:all' komutunu çalıştırabilirsiniz." -ForegroundColor Cyan
+
+
+
 
 
 

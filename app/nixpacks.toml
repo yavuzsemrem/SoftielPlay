@@ -24,3 +24,6 @@ cmds = []
 [start]
 # App dizininden başlat
 cmd = "cd app && npm start"
+
+
+

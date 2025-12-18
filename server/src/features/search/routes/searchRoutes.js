@@ -1,32 +1,61 @@
 const express = require('express');
 const router = express.Router();
-const { exec } = require('child_process');
-const { promisify } = require('util');
-const fs = require('fs');
-const path = require('path');
-const execAsync = promisify(exec);
 const spotifyService = require('../../../services/spotifyService');
+const { supabase } = require('../../../services/supabase');
+const YouTube = require('youtube-sr').default;
 
 /**
- * yt-dlp komutunun yolunu bulur
- * @returns {string} yt-dlp komutu
+ * Supabase'den song mapping'i alır
+ * @param {string} spotifyId - Spotify track ID
+ * @returns {Promise<Object|null>} Mapping bilgisi veya null
  */
-function getYtDlpCommand() {
-  // Virtual environment içinde kontrol et
-  const venvPaths = [
-    '/app/venv/bin/yt-dlp',
-    path.join(process.cwd(), 'venv', 'bin', 'yt-dlp'),
-    path.join(require('os').homedir(), '.local', 'bin', 'yt-dlp'),
-  ];
+async function getSongMapping(spotifyId) {
+  try {
+    const { data, error } = await supabase
+      .from('song_mappings')
+      .select('*')
+      .eq('spotify_id', spotifyId)
+      .single();
 
-  for (const ytDlpPath of venvPaths) {
-    if (fs.existsSync(ytDlpPath)) {
-      return ytDlpPath;
+    if (error && error.code !== 'PGRST116') { // PGRST116 = not found
+      console.error('❌ Supabase song_mappings sorgu hatası:', error);
+      return null;
     }
-  }
 
-  // PATH'te yt-dlp varsa onu kullan
-  return 'yt-dlp';
+    return data;
+  } catch (error) {
+    console.error('❌ Supabase song_mappings hatası:', error);
+    return null;
+  }
+}
+
+/**
+ * Supabase'e song mapping kaydeder
+ * @param {string} spotifyId - Spotify track ID
+ * @param {string} youtubeId - YouTube video ID
+ * @param {number} durationMs - Süre (milisaniye)
+ */
+async function saveSongMapping(spotifyId, youtubeId, durationMs) {
+  try {
+    const { error } = await supabase
+      .from('song_mappings')
+      .upsert({
+        spotify_id: spotifyId,
+        youtube_id: youtubeId,
+        duration_ms: durationMs,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'spotify_id'
+      });
+
+    if (error) {
+      console.error('❌ Supabase song_mappings kayıt hatası:', error);
+    } else {
+      console.log(`✅ Song mapping kaydedildi: ${spotifyId} -> ${youtubeId}`);
+    }
+  } catch (error) {
+    console.error('❌ Supabase song_mappings kayıt hatası:', error);
+  }
 }
 
 /**
@@ -136,8 +165,10 @@ router.get('/search', async (req, res) => {
  * YouTube video eşleştirme endpoint'i
  * GET /api/match-youtube/:spotifyId
  * Spotify track bilgilerini alıp YouTube'da en doğru videoyu bulur
+ * Önce Supabase'deki kalıcı mapping'e bakar, yoksa youtube-sr ile arama yapar
  */
 router.get('/match-youtube/:spotifyId', async (req, res) => {
+  const startTime = Date.now();
   try {
     const { spotifyId } = req.params;
 
@@ -148,118 +179,128 @@ router.get('/match-youtube/:spotifyId', async (req, res) => {
       });
     }
 
-    // Spotify'dan track bilgilerini al
-    const track = await spotifyService.getTrack(spotifyId);
+    // 1. ÖNCE SUPABASE'DEN KALICI MAPPING'E BAK (ÇOK HIZLI - <10ms)
+    const mapping = await getSongMapping(spotifyId);
+    if (mapping && mapping.youtube_id) {
+      const dbTime = Date.now() - startTime;
+      console.log(`⚡⚡ Supabase mapping hit: ${spotifyId} -> ${mapping.youtube_id} (${dbTime}ms)`);
+      
+      // Spotify track bilgilerini al (cache için)
+      const track = await spotifyService.getTrack(spotifyId);
+      
+      const trackInfo = {
+        track_name: track.track_name,
+        artist_name: track.artist_name,
+        album_art: track.album_art,
+      };
 
-    // YouTube'da arama yap: "track_name artist_name"
-    const searchQuery = `${track.track_name} ${track.artist_name}`;
-    const ytDlpCmd = getYtDlpCommand();
-    
-    // yt-dlp ile arama yap (en iyi eşleşmeyi bulmak için ilk 5 sonucu kontrol et)
-    const searchCommand = `"${ytDlpCmd}" "ytsearch5:${searchQuery}" --dump-json --no-warnings --no-playlist`;
-    
-    let searchOutput;
-    try {
-      const { stdout } = await execAsync(searchCommand, { 
-        maxBuffer: 10 * 1024 * 1024, // 10MB buffer
-        timeout: 30000 // 30 saniye timeout
+      const bestMatch = {
+        videoId: mapping.youtube_id,
+        title: `${track.track_name} - ${track.artist_name}`,
+        duration: mapping.duration_ms ? `${Math.floor(mapping.duration_ms / 60000)}:${String(Math.floor((mapping.duration_ms % 60000) / 1000)).padStart(2, '0')}` : '0:00',
+        duration_seconds: mapping.duration_ms ? Math.floor(mapping.duration_ms / 1000) : 0,
+        thumbnail: `https://img.youtube.com/vi/${mapping.youtube_id}/maxresdefault.jpg`,
+        match_score: 100, // Kalıcı mapping = mükemmel eşleşme
+      };
+
+      return res.json({
+        success: true,
+        spotify_id: spotifyId,
+        spotify_track: trackInfo,
+        youtube_match: bestMatch,
+        cached: true,
+        source: 'supabase'
       });
-      searchOutput = stdout;
+    }
+
+    // 2. SUPABASE'DE YOKSA YOUTUBE-SR İLE ARAMA YAP (HIZLI - ~2-5s)
+    console.log(`🔍 Supabase'de mapping yok, YouTube araması yapılıyor: ${spotifyId}`);
+    const track = await spotifyService.getTrack(spotifyId);
+    const searchQuery = `${track.track_name} ${track.artist_name}`;
+    
+    let searchResults;
+    try {
+      // youtube-sr ile arama (çok daha hızlı - yt-dlp'den 10x daha hızlı)
+      searchResults = await YouTube.search(searchQuery, { 
+        limit: 5, // İlk 5 sonucu kontrol et
+        type: 'video'
+      });
     } catch (error) {
-      console.error('YouTube arama komutu hatası:', error);
+      console.error('❌ YouTube-SR arama hatası:', error);
       return res.status(500).json({ 
         error: 'YouTube arama sırasında hata oluştu',
         message: error.message 
       });
     }
 
-    // JSON çıktısını parse et
-    const lines = searchOutput.split('\n').filter(line => line.trim());
+    if (!searchResults || searchResults.length === 0) {
+      return res.status(404).json({ 
+        error: 'YouTube video bulunamadı',
+        message: 'Arama sonuçlarında uygun video bulunamadı' 
+      });
+    }
+
+    // En iyi eşleşmeyi bul
     let bestMatch = null;
     let bestScore = 0;
 
-    // Track adını ve sanatçı adını normalize et (karşılaştırma için)
     const normalizeString = (str) => {
       return str
         .toLowerCase()
-        .replace(/[^\w\s]/g, '') // Özel karakterleri kaldır
-        .replace(/\s+/g, ' ') // Çoklu boşlukları tek boşluğa çevir
+        .replace(/[^\w\s]/g, '')
+        .replace(/\s+/g, ' ')
         .trim();
     };
 
     const normalizedTrackName = normalizeString(track.track_name);
     const normalizedArtistName = normalizeString(track.artist_name);
 
-    for (const line of lines) {
-      try {
-        const video = JSON.parse(line);
-        
-        if (video.id && video.title) {
-          // Video başlığını normalize et
-          const normalizedVideoTitle = normalizeString(video.title);
-          
-          // Eşleşme skoru hesapla
-          let score = 0;
-          
-          // Track adı eşleşmesi
-          if (normalizedVideoTitle.includes(normalizedTrackName)) {
-            score += 10;
-          }
-          
-          // Sanatçı adı eşleşmesi
-          if (normalizedVideoTitle.includes(normalizedArtistName)) {
-            score += 5;
-          }
-          
-          // Tam eşleşme bonusu
-          if (normalizedVideoTitle === `${normalizedTrackName} ${normalizedArtistName}` ||
-              normalizedVideoTitle === `${normalizedArtistName} ${normalizedTrackName}`) {
-            score += 20;
-          }
+    for (const video of searchResults) {
+      if (!video.id || !video.title) continue;
 
-          // Süre uyumu (Spotify duration ile karşılaştır)
-          if (video.duration && track.duration_ms) {
-            const videoDurationMs = video.duration * 1000;
-            const durationDiff = Math.abs(videoDurationMs - track.duration_ms);
-            // 10 saniyeden az fark varsa bonus
-            if (durationDiff < 10000) {
-              score += 5;
-            }
-          }
+      const normalizedVideoTitle = normalizeString(video.title);
+      let score = 0;
 
-          // En yüksek skorlu videoyu seç
-          if (score > bestScore) {
-            bestScore = score;
-            
-            // Süreyi formatla
-            const duration = video.duration || 0;
-            const minutes = Math.floor(duration / 60);
-            const seconds = duration % 60;
-            const durationFormatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      // Track adı eşleşmesi
+      if (normalizedVideoTitle.includes(normalizedTrackName)) {
+        score += 10;
+      }
 
-            // Thumbnail URL'ini al
-            let thumbnail = null;
-            if (video.thumbnail) {
-              thumbnail = video.thumbnail;
-            } else if (video.thumbnails && video.thumbnails.length > 0) {
-              thumbnail = video.thumbnails[video.thumbnails.length - 1].url;
-            } else if (video.id) {
-              thumbnail = `https://img.youtube.com/vi/${video.id}/maxresdefault.jpg`;
-            }
+      // Sanatçı adı eşleşmesi
+      if (normalizedVideoTitle.includes(normalizedArtistName)) {
+        score += 5;
+      }
 
-            bestMatch = {
-              videoId: video.id,
-              title: video.title,
-              duration: durationFormatted,
-              duration_seconds: video.duration || 0,
-              thumbnail: thumbnail,
-              match_score: score,
-            };
-          }
+      // Tam eşleşme bonusu
+      if (normalizedVideoTitle === `${normalizedTrackName} ${normalizedArtistName}` ||
+          normalizedVideoTitle === `${normalizedArtistName} ${normalizedTrackName}`) {
+        score += 20;
+      }
+
+      // Süre uyumu
+      if (video.duration && track.duration_ms) {
+        const videoDurationMs = video.duration * 1000;
+        const durationDiff = Math.abs(videoDurationMs - track.duration_ms);
+        if (durationDiff < 10000) {
+          score += 5;
         }
-      } catch (parseError) {
-        // JSON parse hatası, devam et
-        continue;
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        const duration = video.duration || 0;
+        const minutes = Math.floor(duration / 60);
+        const seconds = duration % 60;
+        const durationFormatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+        bestMatch = {
+          videoId: video.id,
+          title: video.title,
+          duration: durationFormatted,
+          duration_seconds: duration || 0,
+          thumbnail: video.thumbnail?.displayThumbnailURL('maxresdefault') || `https://img.youtube.com/vi/${video.id}/maxresdefault.jpg`,
+          match_score: score,
+        };
       }
     }
 
@@ -270,19 +311,29 @@ router.get('/match-youtube/:spotifyId', async (req, res) => {
       });
     }
 
+    // 3. SUPABASE'E KAYDET (KALICI MAPPING)
+    await saveSongMapping(spotifyId, bestMatch.videoId, track.duration_ms);
+
+    const trackInfo = {
+      track_name: track.track_name,
+      artist_name: track.artist_name,
+      album_art: track.album_art,
+    };
+
+    const totalTime = Date.now() - startTime;
+    console.log(`✅ YouTube eşleştirme tamamlandı: ${spotifyId} -> ${bestMatch.videoId} (${totalTime}ms)`);
+
     res.json({
       success: true,
       spotify_id: spotifyId,
-      spotify_track: {
-        track_name: track.track_name,
-        artist_name: track.artist_name,
-        album_art: track.album_art,
-      },
+      spotify_track: trackInfo,
       youtube_match: bestMatch,
+      cached: false,
+      source: 'youtube-sr'
     });
 
   } catch (error) {
-    console.error('YouTube eşleştirme hatası:', error);
+    console.error('❌ YouTube eşleştirme hatası:', error);
     res.status(500).json({ 
       error: 'YouTube eşleştirme sırasında hata oluştu',
       message: error.message 
@@ -291,6 +342,8 @@ router.get('/match-youtube/:spotifyId', async (req, res) => {
 });
 
 module.exports = router;
+
+
 
 
 

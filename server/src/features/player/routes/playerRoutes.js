@@ -4,7 +4,47 @@ const { exec } = require('child_process');
 const { promisify } = require('util');
 const fs = require('fs');
 const path = require('path');
+const https = require('https');
+const http = require('http');
+const { URL } = require('url');
 const execAsync = promisify(exec);
+const NodeCache = require('node-cache');
+
+// node-cache ile stream URL caching (RAM'de, çok hızlı)
+const streamUrlCache = new NodeCache({
+  stdTTL: 2 * 60 * 60, // 2 saat (saniye cinsinden)
+  checkperiod: 60, // Her 60 saniyede bir expire kontrolü
+  useClones: false // Performans için clone'lamayı kapat
+});
+
+/**
+ * Stream URL'in hala geçerli olup olmadığını kontrol eder (HEAD isteği)
+ * @param {string} streamUrl - Kontrol edilecek stream URL
+ * @returns {Promise<boolean>} - URL geçerliyse true, değilse false
+ */
+async function validateStreamUrl(streamUrl) {
+  try {
+    const url = new URL(streamUrl);
+    const client = url.protocol === 'https:' ? https : http;
+    
+    return new Promise((resolve) => {
+      const req = client.request(url, { method: 'HEAD', timeout: 2000 }, (res) => {
+        // 2xx veya 3xx status kodları geçerli kabul edilir
+        resolve(res.statusCode >= 200 && res.statusCode < 400);
+      });
+      
+      req.on('error', () => resolve(false));
+      req.on('timeout', () => {
+        req.destroy();
+        resolve(false);
+      });
+      
+      req.end();
+    });
+  } catch (error) {
+    return false;
+  }
+}
 
 /**
  * yt-dlp komutunun yolunu bulur
@@ -89,34 +129,49 @@ function getYtDlpCommand() {
 router.get('/stream/:videoId', async (req, res) => {
   try {
     const { videoId } = req.params;
+    const trimmedVideoId = videoId.trim();
 
-    if (!videoId || videoId.trim().length === 0) {
+    if (!trimmedVideoId || trimmedVideoId.length === 0) {
       return res.status(400).json({
         error: 'Video ID gerekli',
         message: 'videoId parametresi boş olamaz'
       });
     }
 
+    // Cache kontrolü: node-cache otomatik TTL yönetimi yapar
+    const cached = streamUrlCache.get(trimmedVideoId);
+    if (cached) {
+      console.log(`⚡⚡ node-cache hit: ${trimmedVideoId} (anında)`);
+      return res.json({
+        success: true,
+        videoId: trimmedVideoId,
+        streamUrl: cached,
+        cached: true
+      });
+    }
+
     // YouTube URL'ini oluştur
-    const youtubeUrl = `https://www.youtube.com/watch?v=${videoId.trim()}`;
+    const youtubeUrl = `https://www.youtube.com/watch?v=${trimmedVideoId}`;
     const ytDlpCmd = getYtDlpCommand();
     console.log('🔧 yt-dlp komutu:', ytDlpCmd);
 
-    // yt-dlp ile stream URL'ini al
+    // yt-dlp ile stream URL'ini al (optimizasyon bayrakları ile)
     // -f "bestaudio[ext=m4a]/bestaudio": Önce m4a formatını dene, yoksa en iyi ses formatını kullan
-    // -g: Sadece URL'yi döndür, indirme
+    // -g: Sadece URL'yi döndür, indirme (en hızlı mod)
+    // --no-check-certificate: SSL sertifika kontrolünü atla (hız için)
     // --no-warnings: Uyarı mesajlarını gizle
+    // --prefer-free-formats: Ücretsiz formatları tercih et (hız için)
+    // --youtube-skip-dash-manifest: DASH manifest'i atla (hız için)
     // --no-playlist: Playlist'leri ignore et
-    // Windows'ta Python modülü olarak çalışıyorsa tırnak işaretlerini kaldır
     const streamCommand = ytDlpCmd.includes('python -m') 
-      ? `${ytDlpCmd} "${youtubeUrl}" -f "bestaudio[ext=m4a]/bestaudio" -g --no-warnings --no-playlist`
-      : `"${ytDlpCmd}" "${youtubeUrl}" -f "bestaudio[ext=m4a]/bestaudio" -g --no-warnings --no-playlist`;
+      ? `${ytDlpCmd} "${youtubeUrl}" -f "bestaudio[ext=m4a]/bestaudio" -g --no-check-certificate --no-warnings --prefer-free-formats --youtube-skip-dash-manifest --no-playlist`
+      : `"${ytDlpCmd}" "${youtubeUrl}" -f "bestaudio[ext=m4a]/bestaudio" -g --no-check-certificate --no-warnings --prefer-free-formats --youtube-skip-dash-manifest --no-playlist`;
 
     let streamUrl;
     try {
       const { stdout, stderr } = await execAsync(streamCommand, {
         maxBuffer: 10 * 1024 * 1024, // 10MB buffer
-        timeout: 30000 // 30 saniye timeout
+        timeout: 15000 // 15 saniye timeout (optimizasyon için düşürüldü)
       });
 
       // stdout'tan stream URL'ini al (trim ile boşlukları temizle)
@@ -140,13 +195,16 @@ router.get('/stream/:videoId', async (req, res) => {
         });
       }
 
-      console.log(`✅ Stream URL alındı: ${videoId} -> ${streamUrl.substring(0, 50)}...`);
+      // node-cache'e kaydet (otomatik TTL yönetimi)
+      streamUrlCache.set(trimmedVideoId, streamUrl);
+      console.log(`✅ Stream URL alındı ve node-cache'e kaydedildi: ${trimmedVideoId} -> ${streamUrl.substring(0, 50)}...`);
 
       // Başarılı yanıt döndür
       res.json({
         success: true,
-        videoId: videoId.trim(),
-        streamUrl: streamUrl
+        videoId: trimmedVideoId,
+        streamUrl: streamUrl,
+        cached: false
       });
 
     } catch (error) {
@@ -184,3 +242,6 @@ router.get('/stream/:videoId', async (req, res) => {
 });
 
 module.exports = router;
+
+
+

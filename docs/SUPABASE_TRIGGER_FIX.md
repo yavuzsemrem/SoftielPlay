@@ -116,3 +116,6 @@ Bu durumda Supabase projenizin admin yetkilerine sahip olduğunuzdan emin olun. 
 
 
 
+
+
+

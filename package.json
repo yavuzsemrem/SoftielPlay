@@ -19,7 +19,8 @@
     "dev": "npm run server:dev",
     "dev:all": "concurrently \"npm run server:dev\" \"npm run app\" --names \"SERVER,APP\" --prefix-colors \"blue,green\"",
     "start:all": "concurrently \"npm run server\" \"npm run app\" --names \"SERVER,APP\" --prefix-colors \"blue,green\"",
-    "clean:ports": "powershell -ExecutionPolicy Bypass -File ./kill-ports.ps1"
+    "clean:ports": "powershell -ExecutionPolicy Bypass -File ./kill-ports.ps1",
+    "clean:all": "powershell -ExecutionPolicy Bypass -File ./kill-ports.ps1 && cd app && npm run clean:cache"
   },
   "keywords": [
     "music",
@@ -34,6 +35,9 @@
     "concurrently": "^8.2.2"
   }
 }
+
+
+
 
 
 
