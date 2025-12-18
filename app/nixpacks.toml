@@ -14,8 +14,9 @@ nixPkgs = ["pkgs.nodejs_20"]
 # Bu yüzden app dizinine geçip sadece app'in bağımlılıklarını kurmalıyız
 # App dizininde npm install kullanarak kendi lock file'ını oluşturmasına izin veriyoruz
 # Bu sayede root'taki workspaces ve server bağımlılıkları ignore edilir
+# NOT: --omit=dev kaldırıldı çünkü expo ve diğer paketler için gerekli
 cmds = [
-  "cd app && npm install --omit=dev"
+  "cd app && npm install"
 ]
 
 [phases.build]

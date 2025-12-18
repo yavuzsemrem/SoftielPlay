@@ -7,11 +7,11 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "start": "node --max-old-space-size=4096 node_modules/expo/bin/cli.js start",
-    "android": "node --max-old-space-size=4096 node_modules/expo/bin/cli.js start --android",
-    "ios": "node --max-old-space-size=4096 node_modules/expo/bin/cli.js start --ios",
-    "web": "node --max-old-space-size=4096 node_modules/expo/bin/cli.js start --web",
-    "clean": "expo start --clear",
+    "start": "npx expo start",
+    "android": "npx expo start --android",
+    "ios": "npx expo start --ios",
+    "web": "npx expo start --web",
+    "clean": "npx expo start --clear",
     "clean:cache": "npx expo start --clear"
   },
   "dependencies": {
