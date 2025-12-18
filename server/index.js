@@ -21,6 +21,16 @@ app.use('/api', searchRoutes);
 
 // Sunucuyu başlat
 async function startServer() {
+  // PATH'e virtual environment ve Nix profile ekle (Railway/Nixpacks için)
+  const venvPath = '/app/venv/bin';
+  const nixProfilePath = '/root/.nix-profile/bin';
+  const currentPath = process.env.PATH || '';
+  
+  // PATH'e ekle (henüz eklenmemişse)
+  if (!currentPath.includes(venvPath)) {
+    process.env.PATH = `${venvPath}:${nixProfilePath}:${currentPath}`;
+  }
+
   // Sistem bağımlılıklarını kontrol et (SKIP_SYSTEM_CHECK env var ile atlanabilir)
   const skipCheck = process.env.SKIP_SYSTEM_CHECK === 'true';
   const dependenciesOk = await validateSystemDependencies(skipCheck);

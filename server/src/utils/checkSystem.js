@@ -49,6 +49,45 @@ async function checkFFmpeg() {
     return true;
   }
 
+  // Nix store ve nix-profile içinde kontrol et (Railway/Nixpacks için)
+  const nixPaths = [
+    '/root/.nix-profile/bin/ffmpeg',
+    path.join(os.homedir(), '.nix-profile', 'bin', 'ffmpeg'),
+    '/nix/store',
+  ];
+
+  // Nix profile bin dizinini kontrol et
+  for (const nixPath of nixPaths.slice(0, 2)) {
+    if (fs.existsSync(nixPath)) {
+      try {
+        await execAsync(`"${nixPath}" -version`, { timeout: 3000 });
+        return true;
+      } catch (e) {
+        // Devam et
+      }
+    }
+  }
+
+  // Nix store içinde ffmpeg ara (sadece Linux'ta)
+  if (process.platform !== 'win32') {
+    try {
+      if (fs.existsSync('/nix/store')) {
+        const { stdout } = await execAsync('find /nix/store -name "ffmpeg" -type f 2>/dev/null | head -1', { timeout: 5000 });
+        const ffmpegPath = stdout.trim();
+        if (ffmpegPath && fs.existsSync(ffmpegPath)) {
+          try {
+            await execAsync(`"${ffmpegPath}" -version`, { timeout: 3000 });
+            return true;
+          } catch (e) {
+            // Devam et
+          }
+        }
+      }
+    } catch (e) {
+      // Devam et
+    }
+  }
+
   // Windows'ta yaygın kurulum yerlerini kontrol et
   if (process.platform === 'win32') {
     const winGetPath = path.join(os.homedir(), 'AppData', 'Local', 'Microsoft', 'WinGet', 'Packages');
@@ -111,6 +150,46 @@ async function checkYtDlp() {
   // Önce PATH'te kontrol et
   if (await checkCommand('yt-dlp')) {
     return true;
+  }
+
+  // Virtual environment içinde kontrol et (Railway/Nixpacks için)
+  const venvPaths = [
+    '/app/venv/bin/yt-dlp',
+    path.join(process.cwd(), 'venv', 'bin', 'yt-dlp'),
+    path.join(os.homedir(), '.local', 'bin', 'yt-dlp'),
+    '/root/.nix-profile/bin/yt-dlp',
+    path.join(os.homedir(), '.nix-profile', 'bin', 'yt-dlp'),
+  ];
+
+  for (const ytDlpPath of venvPaths) {
+    if (fs.existsSync(ytDlpPath)) {
+      try {
+        await execAsync(`"${ytDlpPath}" --version`, { timeout: 5000 });
+        return true;
+      } catch (e) {
+        // Devam et
+      }
+    }
+  }
+
+  // Nix store içinde yt-dlp ara (sadece Linux'ta)
+  if (process.platform !== 'win32') {
+    try {
+      if (fs.existsSync('/nix/store')) {
+        const { stdout } = await execAsync('find /nix/store -name "yt-dlp" -type f 2>/dev/null | head -1', { timeout: 5000 });
+        const ytDlpPath = stdout.trim();
+        if (ytDlpPath && fs.existsSync(ytDlpPath)) {
+          try {
+            await execAsync(`"${ytDlpPath}" --version`, { timeout: 5000 });
+            return true;
+          } catch (e) {
+            // Devam et
+          }
+        }
+      }
+    } catch (e) {
+      // Devam et
+    }
   }
 
   // Windows'ta Python Scripts klasörünü kontrol et

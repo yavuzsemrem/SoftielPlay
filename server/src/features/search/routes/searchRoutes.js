@@ -2,7 +2,31 @@ const express = require('express');
 const router = express.Router();
 const { exec } = require('child_process');
 const { promisify } = require('util');
+const fs = require('fs');
+const path = require('path');
 const execAsync = promisify(exec);
+
+/**
+ * yt-dlp komutunun yolunu bulur
+ * @returns {string} yt-dlp komutu
+ */
+function getYtDlpCommand() {
+  // Virtual environment içinde kontrol et
+  const venvPaths = [
+    '/app/venv/bin/yt-dlp',
+    path.join(process.cwd(), 'venv', 'bin', 'yt-dlp'),
+    path.join(require('os').homedir(), '.local', 'bin', 'yt-dlp'),
+  ];
+
+  for (const ytDlpPath of venvPaths) {
+    if (fs.existsSync(ytDlpPath)) {
+      return ytDlpPath;
+    }
+  }
+
+  // PATH'te yt-dlp varsa onu kullan
+  return 'yt-dlp';
+}
 
 /**
  * YouTube arama endpoint'i
@@ -21,9 +45,10 @@ router.get('/search', async (req, res) => {
 
     // YouTube arama yap - ytsearch kullanarak
     const searchQuery = `ytsearch15:${q.trim()}`;
+    const ytDlpCmd = getYtDlpCommand();
     
     // yt-dlp-exec ile arama yap
-    const searchCommand = `yt-dlp "${searchQuery}" --dump-json --no-warnings --no-playlist --flat-playlist`;
+    const searchCommand = `"${ytDlpCmd}" "${searchQuery}" --dump-json --no-warnings --no-playlist --flat-playlist`;
     
     let searchOutput;
     try {
@@ -34,7 +59,7 @@ router.get('/search', async (req, res) => {
       searchOutput = stdout;
     } catch (execError) {
       // Eğer flat-playlist çalışmazsa, normal arama dene
-      const normalCommand = `yt-dlp "ytsearch15:${q.trim()}" --dump-json --no-warnings --no-playlist`;
+      const normalCommand = `"${ytDlpCmd}" "ytsearch15:${q.trim()}" --dump-json --no-warnings --no-playlist`;
       try {
         const { stdout } = await execAsync(normalCommand, { 
           maxBuffer: 10 * 1024 * 1024,
