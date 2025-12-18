@@ -4,6 +4,10 @@
   "description": "OpenAudio Backend Server",
   "main": "index.js",
   "type": "commonjs",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js"

@@ -1,0 +1,17 @@
+# Nixpacks configuration for Railway
+# Bu dosya Railway'ın build sürecini yapılandırır
+
+[phases.setup]
+nixPkgs = ["nodejs-20_x", "python3", "ffmpeg"]
+
+[phases.install]
+cmds = [
+  "npm ci --omit=dev",
+  "pip3 install --user yt-dlp"
+]
+
+[phases.build]
+cmds = []
+
+[start]
+cmd = "npm start"

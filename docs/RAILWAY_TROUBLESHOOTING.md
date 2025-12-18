@@ -56,6 +56,24 @@ Bu hata genellikle şu sebeplerden kaynaklanır:
 2. Manuel olarak `PORT=3000` eklemeyin (Railway otomatik yapar)
 3. Sadece `SKIP_SYSTEM_CHECK=true` ekleyin
 
+## Node.js Versiyon Hatası
+
+**Sorun:** Railway Node.js 18 kullanıyor ama paketler Node.js 20+ gerektiriyor.
+
+**Çözüm:**
+1. `server/.nvmrc` dosyası oluşturuldu (içinde `20` yazıyor)
+2. `server/package.json`'da `engines` field'ı eklendi
+3. Railway otomatik olarak Node.js 20 kullanacak
+
+## Python Bulunamıyor Hatası
+
+**Sorun:** `yt-dlp-exec` paketi Python gerektiriyor ama Railway'da kurulu değil.
+
+**Çözüm:**
+1. `server/nixpacks.toml` dosyası oluşturuldu
+2. Bu dosya Railway'a Python ve yt-dlp kurmasını söylüyor
+3. Railway otomatik olarak Python ve yt-dlp kuracak
+
 ## Adım Adım Düzeltme
 
 1. **Root Directory Kontrolü:**
@@ -67,6 +85,14 @@ Bu hata genellikle şu sebeplerden kaynaklanır:
    ```
    SKIP_SYSTEM_CHECK=true
    ```
+
+3. **Node.js Versiyonu:**
+   - `server/.nvmrc` dosyası mevcut olmalı (içinde `20`)
+   - Railway otomatik olarak Node.js 20 kullanacak
+
+4. **Python Kurulumu:**
+   - `server/nixpacks.toml` dosyası mevcut olmalı
+   - Railway otomatik olarak Python ve yt-dlp kuracak
 
 3. **Deploy Loglarını Kontrol:**
    - Railway dashboard'da "Deployments" sekmesine gidin
