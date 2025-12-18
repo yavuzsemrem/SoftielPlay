@@ -4,17 +4,20 @@
 providers = []
 
 [phases.setup]
-# Node.js 20, Python, pip ve FFmpeg nixPkgs ile kuruluyor
-nixPkgs = ["pkgs.nodejs_20", "pkgs.python3", "pkgs.python3Packages.pip", "pkgs.ffmpeg"]
+# Node.js 20, Python (full with venv) ve FFmpeg nixPkgs ile kuruluyor
+# pip virtual environment içinde kurulacak
+nixPkgs = ["pkgs.nodejs_20", "pkgs.python3Full", "pkgs.ffmpeg"]
 
 [phases.install]
 cmds = [
   "npm ci --omit=dev",
-  "pip3 install --user yt-dlp || python3 -m pip install --user --break-system-packages yt-dlp"
+  "python3 -m venv /app/venv",
+  "/app/venv/bin/pip install yt-dlp",
+  "export PATH=/app/venv/bin:$PATH"
 ]
 
 [phases.build]
 cmds = []
 
 [start]
-cmd = "npm start"
+cmd = "export PATH=/app/venv/bin:$PATH && npm start"
