@@ -2,11 +2,15 @@
 
 ## ⚠️ KRİTİK: Bu Adımları Sırayla Yapın!
 
-### 1. Root Directory Ayarlayın (ZORUNLU!)
-- Railway dashboard → App service → Settings
-- "Root Directory" = `app` olarak ayarlayın
-- **Save butonuna tıklayın!**
-- **Bu adım olmadan deployment başarısız olur!**
+### 1. Root Directory Ayarlayın (ZORUNLU - EN ÖNEMLİSİ!)
+**⚠️ BU ADIM OLMADAN DEPLOYMENT BAŞARISIZ OLUR!**
+
+- Railway dashboard → **App service** → **Settings**
+- "Root Directory" alanını bulun
+- Değeri **`app`** olarak ayarlayın (tırnak işareti olmadan, sadece `app`)
+- **"Save" butonuna tıklayın!**
+- **Deploy loglarında "Found workspace with 2 packages" görüyorsanız, root directory ayarı çalışmıyor demektir!**
+- **Doğru ayarlandığında deploy loglarında "Detected Node" ve "Using npm package manager" görürsünüz ama "Found workspace" görmezsiniz!**
 
 ### 2. Environment Variables Ekle (ZORUNLU!)
 - Railway dashboard → App service → Variables
