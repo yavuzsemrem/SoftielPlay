@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: softielplay-api
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: SKIP_SYSTEM_CHECK
+        value: false
