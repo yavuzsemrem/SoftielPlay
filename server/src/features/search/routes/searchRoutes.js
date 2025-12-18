@@ -1,8 +1,72 @@
 const express = require('express');
 const router = express.Router();
+const { exec } = require('child_process');
+const { promisify } = require('util');
+const fs = require('fs');
+const path = require('path');
+const execAsync = promisify(exec);
 const spotifyService = require('../../../services/spotifyService');
 const { supabase } = require('../../../services/supabase');
-const YouTube = require('youtube-sr').default;
+
+/**
+ * yt-dlp komutunun yolunu bulur
+ * @returns {string} yt-dlp komutu
+ */
+function getYtDlpCommand() {
+  const os = require('os');
+  
+  // Virtual environment içinde kontrol et (Linux/Mac/Railway için)
+  const venvPaths = [
+    '/app/venv/bin/yt-dlp',
+    path.join(process.cwd(), 'venv', 'bin', 'yt-dlp'),
+    path.join(os.homedir(), '.local', 'bin', 'yt-dlp'),
+  ];
+
+  for (const ytDlpPath of venvPaths) {
+    if (fs.existsSync(ytDlpPath)) {
+      return ytDlpPath;
+    }
+  }
+
+  // Windows'ta Python Scripts klasörünü kontrol et
+  if (process.platform === 'win32') {
+    const localAppData = path.join(os.homedir(), 'AppData', 'Local');
+    const pythonBasePaths = [
+      path.join(localAppData, 'Python'),
+      path.join(localAppData, 'Programs', 'Python'),
+    ];
+
+    for (const pythonBasePath of pythonBasePaths) {
+      try {
+        if (fs.existsSync(pythonBasePath)) {
+          const entries = fs.readdirSync(pythonBasePath, { withFileTypes: true });
+          
+          for (const entry of entries) {
+            if (entry.isDirectory()) {
+              if (entry.name.startsWith('pythoncore-') || entry.name.startsWith('Python')) {
+                const scriptsPath = path.join(pythonBasePath, entry.name, 'Scripts', 'yt-dlp.exe');
+                
+                if (fs.existsSync(scriptsPath)) {
+                  return scriptsPath;
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // Devam et
+      }
+    }
+  }
+
+  // Windows'ta Python modülü olarak çalıştırmayı dene
+  if (process.platform === 'win32') {
+    return 'python -m yt_dlp';
+  }
+
+  // PATH'te yt-dlp varsa onu kullan
+  return 'yt-dlp';
+}
 
 /**
  * Supabase'den song mapping'i alır
@@ -218,94 +282,141 @@ router.get('/match-youtube/:spotifyId', async (req, res) => {
       console.warn('⚠️ Supabase mapping kontrolü hatası, YouTube aramasına geçiliyor:', supabaseError.message);
     }
 
-    // 2. SUPABASE'DE YOKSA YOUTUBE-SR İLE ARAMA YAP (HIZLI - ~2-5s)
-    console.log(`🔍 Supabase'de mapping yok, YouTube araması yapılıyor: ${spotifyId}`);
+    // 2. SUPABASE'DE YOKSA YT-DLP İLE ARAMA YAP (DOĞRU SONUÇLAR - ~8-12s)
+    // NOT: yt-dlp daha yavaş ama çok daha doğru sonuçlar veriyor
+    // Supabase mapping sayesinde ikinci seferde anında açılacak
+    console.log(`🔍 Supabase'de mapping yok, yt-dlp ile YouTube araması yapılıyor: ${spotifyId}`);
     const track = await spotifyService.getTrack(spotifyId);
     const searchQuery = `${track.track_name} ${track.artist_name}`;
+    const ytDlpCmd = getYtDlpCommand();
     
-    let searchResults;
+    // yt-dlp ile arama yap (optimize edilmiş bayraklar ile)
+    // ytsearch3: İlk 3 sonucu kontrol et (daha hızlı, genelde ilk sonuç doğru)
+    const searchCommand = `"${ytDlpCmd}" "ytsearch3:${searchQuery}" --dump-json --no-check-certificate --no-warnings --prefer-free-formats --youtube-skip-dash-manifest --no-playlist`;
+    
+    let searchOutput;
     try {
-      // youtube-sr ile arama (çok daha hızlı - yt-dlp'den 10x daha hızlı)
-      searchResults = await YouTube.search(searchQuery, { 
-        limit: 5, // İlk 5 sonucu kontrol et
-        type: 'video'
+      const { stdout } = await execAsync(searchCommand, { 
+        maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+        timeout: 20000 // 20 saniye timeout (doğru sonuç için yeterli)
       });
+      searchOutput = stdout;
     } catch (error) {
-      console.error('❌ YouTube-SR arama hatası:', error);
+      console.error('❌ yt-dlp arama komutu hatası:', error);
       return res.status(500).json({ 
         error: 'YouTube arama sırasında hata oluştu',
         message: error.message 
       });
     }
 
-    if (!searchResults || searchResults.length === 0) {
-      return res.status(404).json({ 
-        error: 'YouTube video bulunamadı',
-        message: 'Arama sonuçlarında uygun video bulunamadı' 
-      });
-    }
-
-    // En iyi eşleşmeyi bul
+    // JSON çıktısını parse et
+    const lines = searchOutput.split('\n').filter(line => line.trim());
     let bestMatch = null;
     let bestScore = 0;
 
     const normalizeString = (str) => {
       return str
         .toLowerCase()
-        .replace(/[^\w\s]/g, '')
-        .replace(/\s+/g, ' ')
+        .replace(/[^\w\s]/g, '') // Özel karakterleri kaldır
+        .replace(/\s+/g, ' ') // Çoklu boşlukları tek boşluğa çevir
         .trim();
     };
 
     const normalizedTrackName = normalizeString(track.track_name);
     const normalizedArtistName = normalizeString(track.artist_name);
 
-    for (const video of searchResults) {
-      if (!video.id || !video.title) continue;
+    for (const line of lines) {
+      try {
+        const video = JSON.parse(line);
+        
+        if (video.id && video.title) {
+          // Video başlığını normalize et
+          const normalizedVideoTitle = normalizeString(video.title);
+          
+          // Eşleşme skoru hesapla (daha sıkı kontroller)
+          let score = 0;
+          
+          // Track adı eşleşmesi (daha sıkı kontrol)
+          if (normalizedVideoTitle.includes(normalizedTrackName)) {
+            score += 10;
+          } else {
+            // Track adının kelimelerini kontrol et
+            const trackWords = normalizedTrackName.split(' ');
+            const matchingWords = trackWords.filter(word => 
+              word.length > 2 && normalizedVideoTitle.includes(word)
+            );
+            if (matchingWords.length >= trackWords.length * 0.7) {
+              score += 5; // %70+ kelime eşleşmesi
+            }
+          }
+          
+          // Sanatçı adı eşleşmesi (daha sıkı kontrol)
+          if (normalizedVideoTitle.includes(normalizedArtistName)) {
+            score += 5;
+          } else {
+            // Sanatçı adının kelimelerini kontrol et
+            const artistWords = normalizedArtistName.split(' ');
+            const matchingWords = artistWords.filter(word => 
+              word.length > 2 && normalizedVideoTitle.includes(word)
+            );
+            if (matchingWords.length >= artistWords.length * 0.7) {
+              score += 3; // %70+ kelime eşleşmesi
+            }
+          }
+          
+          // Tam eşleşme bonusu (çok yüksek skor)
+          if (normalizedVideoTitle === `${normalizedTrackName} ${normalizedArtistName}` ||
+              normalizedVideoTitle === `${normalizedArtistName} ${normalizedTrackName}` ||
+              normalizedVideoTitle.includes(`${normalizedTrackName} ${normalizedArtistName}`) ||
+              normalizedVideoTitle.includes(`${normalizedArtistName} ${normalizedTrackName}`)) {
+            score += 30; // Tam eşleşme için çok yüksek bonus
+          }
 
-      const normalizedVideoTitle = normalizeString(video.title);
-      let score = 0;
+          // Süre uyumu (daha sıkı kontrol - 5 saniye tolerans)
+          if (video.duration && track.duration_ms) {
+            const videoDurationMs = video.duration * 1000;
+            const durationDiff = Math.abs(videoDurationMs - track.duration_ms);
+            // 5 saniyeden az fark varsa bonus (daha sıkı)
+            if (durationDiff < 5000) {
+              score += 10; // Süre uyumu için yüksek bonus
+            } else if (durationDiff < 10000) {
+              score += 5; // 10 saniyeye kadar tolerans
+            }
+          }
 
-      // Track adı eşleşmesi
-      if (normalizedVideoTitle.includes(normalizedTrackName)) {
-        score += 10;
-      }
+          // En yüksek skorlu videoyu seç (minimum skor gereksinimi)
+          if (score > bestScore && score >= 15) { // Minimum 15 skor gereksinimi
+            bestScore = score;
+            
+            // Süreyi formatla
+            const duration = video.duration || 0;
+            const minutes = Math.floor(duration / 60);
+            const seconds = duration % 60;
+            const durationFormatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 
-      // Sanatçı adı eşleşmesi
-      if (normalizedVideoTitle.includes(normalizedArtistName)) {
-        score += 5;
-      }
+            // Thumbnail URL'ini al
+            let thumbnail = null;
+            if (video.thumbnail) {
+              thumbnail = video.thumbnail;
+            } else if (video.thumbnails && video.thumbnails.length > 0) {
+              thumbnail = video.thumbnails[video.thumbnails.length - 1].url;
+            } else if (video.id) {
+              thumbnail = `https://img.youtube.com/vi/${video.id}/maxresdefault.jpg`;
+            }
 
-      // Tam eşleşme bonusu
-      if (normalizedVideoTitle === `${normalizedTrackName} ${normalizedArtistName}` ||
-          normalizedVideoTitle === `${normalizedArtistName} ${normalizedTrackName}`) {
-        score += 20;
-      }
-
-      // Süre uyumu
-      if (video.duration && track.duration_ms) {
-        const videoDurationMs = video.duration * 1000;
-        const durationDiff = Math.abs(videoDurationMs - track.duration_ms);
-        if (durationDiff < 10000) {
-          score += 5;
+            bestMatch = {
+              videoId: video.id,
+              title: video.title,
+              duration: durationFormatted,
+              duration_seconds: video.duration || 0,
+              thumbnail: thumbnail,
+              match_score: score,
+            };
+          }
         }
-      }
-
-      if (score > bestScore) {
-        bestScore = score;
-        const duration = video.duration || 0;
-        const minutes = Math.floor(duration / 60);
-        const seconds = duration % 60;
-        const durationFormatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-        bestMatch = {
-          videoId: video.id,
-          title: video.title,
-          duration: durationFormatted,
-          duration_seconds: duration || 0,
-          thumbnail: video.thumbnail?.displayThumbnailURL('maxresdefault') || `https://img.youtube.com/vi/${video.id}/maxresdefault.jpg`,
-          match_score: score,
-        };
+      } catch (parseError) {
+        // JSON parse hatası, devam et
+        continue;
       }
     }
 
@@ -338,7 +449,7 @@ router.get('/match-youtube/:spotifyId', async (req, res) => {
       spotify_track: trackInfo,
       youtube_match: bestMatch,
       cached: false,
-      source: 'youtube-sr'
+      source: 'yt-dlp'
     });
 
   } catch (error) {
