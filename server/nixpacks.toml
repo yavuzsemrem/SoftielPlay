@@ -5,12 +5,14 @@
 providers = ["node"]
 
 [phases.setup]
-# Python, FFmpeg ve pip manuel olarak ekleniyor
-nixPkgs = ["pkgs.python3", "pkgs.python3Packages.pip", "pkgs.ffmpeg"]
+# Python ve FFmpeg manuel olarak ekleniyor
+# pip Python ile birlikte gelir
+nixPkgs = ["pkgs.python3", "pkgs.ffmpeg"]
 
 [phases.install]
 cmds = [
   "npm ci --omit=dev",
+  "python3 -m ensurepip --user || true",
   "pip3 install --user yt-dlp"
 ]
 
