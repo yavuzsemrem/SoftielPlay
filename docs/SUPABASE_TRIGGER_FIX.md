@@ -113,3 +113,4 @@ Bu durumda Supabase projenizin admin yetkilerine sahip olduğunuzdan emin olun. 
 - Trigger'lar sadece SQL Editor veya CLI üzerinden oluşturulabilir
 - `SECURITY DEFINER` kullanılması, fonksiyonun `auth.users` tablosuna erişebilmesi için gereklidir
 - `ON CONFLICT DO NOTHING` kullanılması, çift kayıt oluşmasını önler
+

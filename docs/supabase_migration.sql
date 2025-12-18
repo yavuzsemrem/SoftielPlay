@@ -257,3 +257,4 @@ CREATE TRIGGER on_auth_user_created
 -- 2. RLS kuralları aktif olacak
 -- 3. Trigger'lar çalışır durumda olacak
 -- 4. Yeni kullanıcı kayıtlarında otomatik profil oluşturulacak
+

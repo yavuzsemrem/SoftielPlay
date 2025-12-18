@@ -330,3 +330,4 @@
 - Çalma listesi detay sayfası
 - Profil düzenleme sayfası
 
+

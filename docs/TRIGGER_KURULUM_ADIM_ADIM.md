@@ -149,3 +149,4 @@ WHERE tgname = 'on_auth_user_created';
 - `Database > Triggers > New Trigger` ile `auth.users` seçme
 
 **Tek Çözüm:** SQL Editor kullan! 🚀
+

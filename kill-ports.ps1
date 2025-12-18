@@ -37,3 +37,4 @@ if ($nodeProcesses) {
 }
 
 Write-Host "`nTemizlik tamamlandı! Artık 'npm run dev:all' komutunu çalıştırabilirsiniz." -ForegroundColor Cyan
+

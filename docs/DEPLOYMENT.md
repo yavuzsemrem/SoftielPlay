@@ -13,9 +13,142 @@ Bu rehber, SoftielPlay uygulamasını production ortamına deploy etmek için ge
 
 ## Backend Deployment
 
-Production ortamında backend'i cloud servise deploy etmeniz gerekiyor. Aşağıdaki seçeneklerden birini kullanabilirsiniz:
+Production ortamında backend'i cloud servise deploy etmeniz gerekiyor. Aşağıdaki **tamamen ücretsiz** seçeneklerden birini kullanabilirsiniz:
 
 ### Seçenek 1: Railway (Önerilen - Kolay ve Ücretsiz)
+
+**Ücretsiz Tier:**
+- $5 ücretsiz kredi/ay (yeterli)
+- Kolay kurulum
+- Otomatik deployment
+
+1. **Railway'a Kayıt Olun:**
+   - https://railway.app adresine gidin
+   - GitHub hesabınızla giriş yapın
+
+2. **Yeni Proje Oluşturun:**
+   - "New Project" → "Deploy from GitHub repo"
+   - `SoftielPlay` repository'sini seçin
+   - Service oluşturulduktan sonra devam edin
+
+3. **Root Directory Ayarlayın (ÇOK ÖNEMLİ!):**
+   - Railway dashboard'da oluşturduğunuz service'e tıklayın
+   - "Settings" sekmesine gidin
+   - "Root Directory" alanını bulun
+   - Değeri `server` olarak ayarlayın (tırnak işareti olmadan)
+   - "Save" butonuna tıklayın
+   - **Bu adım olmadan deployment başarısız olur!**
+
+4. **Environment Variables:**
+   - Railway dashboard'da "Variables" sekmesine gidin
+   - Şu environment variable'ı ekleyin:
+     ```
+     SKIP_SYSTEM_CHECK=true
+     ```
+   **Notlar:**
+   - `PORT` variable'ını eklemeyin, Railway otomatik atar
+   - `SKIP_SYSTEM_CHECK=true` olmalı çünkü Railway'da Python ve yt-dlp kurulu değil
+
+5. **Deploy:**
+   - Railway otomatik olarak deploy edecek
+   - Eğer hata alırsanız, "Deployments" sekmesinden logları kontrol edin
+   - Deploy tamamlandıktan sonra "Settings" → "Generate Domain" ile URL oluşturun
+   - URL'i kopyalayın (örn: `https://your-app.railway.app`)
+
+**⚠️ Sorun Giderme:** Eğer "There was an error deploying from source" hatası alırsanız, `docs/RAILWAY_TROUBLESHOOTING.md` dosyasına bakın.
+
+### Seçenek 2: Fly.io (Ücretsiz - Daha Fazla Kaynak)
+
+**Ücretsiz Tier:**
+- 3 shared-cpu-1x VM (ücretsiz)
+- 160GB outbound data transfer/ay
+- Kolay kurulum
+
+1. **Fly.io'ya Kayıt Olun:**
+   - https://fly.io adresine gidin
+   - GitHub hesabınızla giriş yapın
+
+2. **Fly CLI Kurulumu:**
+   ```bash
+   # Windows (PowerShell)
+   powershell -Command "iwr https://fly.io/install.ps1 -useb | iex"
+   ```
+
+3. **Login:**
+   ```bash
+   fly auth login
+   ```
+
+4. **Proje Oluştur:**
+   ```bash
+   cd server
+   fly launch
+   ```
+   - App name: `softielplay-api` (veya istediğiniz isim)
+   - Region: En yakın bölgeyi seçin
+   - PostgreSQL: No (şimdilik gerek yok)
+
+5. **Deploy:**
+   ```bash
+   fly deploy
+   ```
+
+6. **URL'i Al:**
+   ```bash
+   fly open
+   ```
+   Veya dashboard'dan URL'i kopyalayın: `https://your-app.fly.dev`
+
+### Seçenek 3: Cyclic (Ücretsiz - Serverless)
+
+**Ücretsiz Tier:**
+- Sınırsız deployment
+- Otomatik scaling
+- Kolay kurulum
+
+1. **Cyclic'a Kayıt Olun:**
+   - https://cyclic.sh adresine gidin
+   - GitHub hesabınızla giriş yapın
+
+2. **Yeni Proje:**
+   - "New App" → GitHub repo seçin
+   - Root Directory: `server`
+   - Framework: Node.js
+
+3. **Environment Variables:**
+   - Dashboard'dan environment variables ekleyin
+
+4. **Deploy:**
+   - Otomatik deploy edilecek
+   - URL: `https://your-app.cyclic.app`
+
+### Seçenek 4: Koyeb (Ücretsiz - Avrupa Sunucuları)
+
+**Ücretsiz Tier:**
+- 512MB RAM
+- 1GB disk
+- Sınırsız bandwidth
+
+1. **Koyeb'a Kayıt Olun:**
+   - https://www.koyeb.com adresine gidin
+   - GitHub hesabınızla giriş yapın
+
+2. **Yeni App:**
+   - "Create App" → "GitHub" seçin
+   - Repository: `SoftielPlay`
+   - Root Directory: `server`
+   - Build Command: `npm install`
+   - Run Command: `npm start`
+
+3. **Deploy:**
+   - Otomatik deploy edilecek
+   - URL: `https://your-app.koyeb.app`
+
+### Seçenek 5: Render (Alternatif Hesap)
+
+Eğer Render'da zaten bir uygulamanız varsa:
+- Farklı bir email ile yeni hesap açabilirsiniz
+- Veya mevcut hesabınızda farklı bir proje oluşturabilirsiniz (ücretsiz tier'da birden fazla proje olabilir)
 
 1. **Railway'a Kayıt Olun:**
    - https://railway.app adresine gidin
@@ -38,27 +171,9 @@ Production ortamında backend'i cloud servise deploy etmeniz gerekiyor. Aşağı
    - Railway otomatik olarak deploy edecek
    - Deploy tamamlandıktan sonra URL'i kopyalayın (örn: `https://your-app.railway.app`)
 
-### Seçenek 2: Render
+### Seçenek 6: Vercel (Serverless Functions - Ücretsiz)
 
-1. **Render'a Kayıt Olun:**
-   - https://render.com adresine gidin
-   - GitHub hesabınızla giriş yapın
-
-2. **Yeni Web Service:**
-   - "New" → "Web Service"
-   - Repository'yi bağlayın
-   - Root Directory: `server`
-   - Build Command: `npm install`
-   - Start Command: `npm start`
-
-3. **Environment Variables:**
-   - Environment variables ekleyin
-
-4. **Deploy:**
-   - Render otomatik deploy edecek
-   - URL'i kopyalayın (örn: `https://your-app.onrender.com`)
-
-### Seçenek 3: Vercel (Serverless Functions)
+**Not:** Vercel serverless functions kullanır, bu yüzden `yt-dlp` gibi sistem bağımlılıkları sorun çıkarabilir. Diğer seçenekler daha uygun.
 
 1. **Vercel'e Kayıt Olun:**
    - https://vercel.com adresine gidin
@@ -69,6 +184,18 @@ Production ortamında backend'i cloud servise deploy etmeniz gerekiyor. Aşağı
 
 3. **Deploy:**
    - Vercel otomatik deploy edecek
+
+## Hangi Servisi Seçmeliyim?
+
+| Servis | Ücretsiz Tier | Kolaylık | Önerilen |
+|--------|---------------|----------|----------|
+| **Railway** | $5 kredi/ay | ⭐⭐⭐⭐⭐ | ✅ En kolay |
+| **Fly.io** | 3 VM ücretsiz | ⭐⭐⭐⭐ | ✅ En fazla kaynak |
+| **Cyclic** | Sınırsız | ⭐⭐⭐⭐ | ✅ Serverless |
+| **Koyeb** | 512MB RAM | ⭐⭐⭐ | ✅ Avrupa sunucuları |
+| **Render** | 1 proje | ⭐⭐⭐⭐ | ⚠️ Zaten kullanıyorsunuz |
+
+**Öneri:** Railway veya Fly.io ile başlayın. Railway daha kolay, Fly.io daha fazla kaynak sunuyor.
 
 ## Frontend Configuration
 
@@ -150,3 +277,4 @@ Production build'de environment variable kullanın:
 - Expo uygulamasını tamamen kapatıp yeniden açın
 - `npx expo start --clear` ile cache'i temizleyin
 - `app.json` değişikliklerinden sonra uygulamayı yeniden build edin
+
